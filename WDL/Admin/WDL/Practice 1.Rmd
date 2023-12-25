@@ -1,0 +1,134 @@
+---
+title: "Spatial analysis practice"
+author: "Teodor Yankov"
+date: "10/05/2022"
+output: word_document
+---
+
+## Loading and understanding spatial data
+
+```{r}
+## loading spatial data 
+
+library(rgdal)
+
+x <- c("ggmap", "rgdal", "rgeos", "maptools", "dplyr", "tidyr", "tmap")
+lapply (x, library, character.only = T)
+
+lnd <- readOGR(dsn = "data", layer = "london_sport") # The file we assigned to the lnd object contains the population of London Boroughs in 2001 and the percentage of the population participating in sporting activities. This data originates from the Active People Survey. The boundary data is from the Ordnance Survey.
+```
+```{r}
+## The structure of spatial data 
+
+head(lnd@data, n = 6)
+```
+```{r}
+## analysing spatial data variable
+
+mean(lnd$Partic_Per) # short for mean(lnd@data$Partic_Per)
+```
+
+```{r}
+## getting the variable classes of a spatial dataset
+
+sapply (lnd@data, class)
+```
+
+```{r}
+## weird... pop is a factor / character variable. We have to make it numeric.
+
+lnd$Pop_2001 <- as.numeric(as.character(lnd$Pop_2001))
+
+sapply (lnd@data, class)
+```
+
+```{r}
+## the nrow function displays how many rows --> in this case it tells us how many zones the dataset contains.
+
+nrow (lnd@data) # the dataset has data on 33 zones.
+```
+
+## Basic Plotting
+
+```{r}
+## plotting spatial data 
+
+plot(lnd) # the plot function is a polymorphic function (CS term that means the function alters its behaviour based on the data input)
+```
+
+```{r}
+## subsetting spatial data (@data)
+
+lnd@data [lnd$Partic_Per < 15,] # The square brackets work as follows: anything before the comma refers to the rows that will be selected, anything after the comma refers to the number of columns that should be returned. For example if the data frame had 1000 columns and you were only interested in the first two columns you could specify 1:2 after the comma. The “:” symbol simply means “to”, i.e. columns 1 to 2. Try experimenting with the square brackets notation (e.g. guess the result of lnd@data[1:2, 1:3] and test it).
+```
+```{r}
+## subsetting spatial objects (isolated areas)
+
+sel <- lnd$Partic_Per > 20 & lnd$Partic_Per < 25
+plot (lnd [sel, ])
+```
+```{r}
+## subsetting spatial objects (areas in context + colour coded)
+
+plot (lnd, col = "lightgrey")
+sel <- lnd$Partic_Per > 20 & lnd$Partic_Per < 25
+plot (lnd [sel, ], col = "red", add = TRUE)
+```
+
+```{r}
+## finding and highlighting centroids
+
+plot (lnd, col = "lightgrey") # base layer
+
+cent.lnd <- gCentroid (lnd[lnd$name == "City of London",]) # finding the centroid of spatial object
+points(cent.lnd, cex = 3)
+
+## setting buffer
+
+lnd.buffer <- gBuffer(spgeom = cent.lnd, width = 5000) # defining the buffer parameters
+
+lnd.central <- lnd[lnd.buffer,] # defining the object to plot based on subsetting the whole thing into only including the stuff that falls within the buffer.
+
+plot (lnd.central, 
+      col = "blue",
+      border = "red",
+      add = TRUE)
+
+text(coordinates(cent.lnd), "Central\nLondon",
+     col = "white")
+
+```
+
+```{r}
+## defining quadrants
+
+lat <- coordinates(gCentroid(lnd))[[1]] # latitude 
+lng <- coordinates(gCentroid(lnd))[[2]] # longitude
+
+east <- sapply(coordinates(lnd)[,1], function(x) x > lat)
+north <- sapply(coordinates(lnd)[,2], function(x) x > lng)
+
+lnd@data$quadrant[east & north] <- "northeast"
+
+east <- sapply(coordinates(lnd)[,1], function(x) x > lat)
+north <- sapply(coordinates(lnd)[,2], function(x) x > lng)
+west <- sapply(coordinates(lnd)[,1], function(x) x < lat)
+south <- sapply(coordinates(lnd)[,2], function(x) x < lng)
+
+lnd@data$quadrant[east & north] <- "northeast"
+lnd@data$quadrant[east & south] <- "southeast"
+lnd@data$quadrant[west & south] <- "southwest"
+lnd@data$quadrant[west & north] <- "northwest"
+
+library ("stplanr")
+
+plot (lnd, color = "lightgrey")
+quads <- quadrant(lnd)
+plot (lnd,col = factor (quads))
+```
+
+```{r}
+a <- c("cpd$policy, cpd$risk, cpd$hdi, cpd$ghg, cpd$gdp, cpd$cc.opinion")
+lapply (a, length, character.only = T)
+```
+ 

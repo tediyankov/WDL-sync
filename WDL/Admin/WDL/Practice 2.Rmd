@@ -1,0 +1,17 @@
+---
+title: "Untitled"
+author: "Teodor Yankov"
+date: "10/05/2022"
+output: word_document
+---
+
+```{r}
+## creating a function to load relevant packages
+
+spatial.packages <- function () {
+  x <- c("ggmap", "rgdal", "rgeos", "maptools", "dplyr", "tidyr", "tmap", "stplanr")
+  lapply (x, library, character.only = T)
+}
+```
+
+

@@ -1,0 +1,26 @@
+"year","iso3c","country","sector","subsector","em_pc","gdp"
+2020,"ITA","Italy","Agriculture","CROPS",0.16911509639056,1981868193673
+2020,"KOR","South Korea","Agriculture","LIVESTOCK",0.205126503768197,2018293113317
+2020,"TUR","Turkey","Agriculture","LULUCF",-0.69419092744067,2161773542307
+2020,"COL","Colombia","Building","BUILD_FGAS",0.0208819462929928,633959815453
+2020,"MEX","Mexico","Building","buildings_gas",0.00541660102417294,2093942471639
+2020,"COL","Colombia","Building","buildings_liquids",0.0262368940679145,633959815453
+2020,"TUR","Turkey","Energy","ENE_COMBUST",0.0121425594149464,2161773542307
+2020,"FRA","France","Energy","energy_coal",0.027276112379472,2489602669813
+2020,"COL","Colombia","Energy","energy_heating",0.00216431134013246,633959815453
+2020,"COL","Colombia","Energy","energy_residual",0.263897691289993,633959815453
+2020,"JPN","Japan","Energy","FF_PROD",0.0123292231959192,4786983203847
+2020,"GBR","United Kingdom","Industry","Cement",0.0491838685158001,2530568992827
+2020,"COL","Colombia","Industry","Chemicals",0.0466311944028383,633959815453
+2020,"COL","Colombia","Industry","Metals",0.0671017961930719,633959815453
+2020,"COL","Colombia","Industry","Other (industry)",0.336040170997898,633959815453
+2020,"POL","Poland","Industry","Waste",0.206798061423323,1115561996489
+2020,"MEX","Mexico","Transport","transport_air",0.000169552685790763,2093942471639
+2020,"COL","Colombia","Transport","transport_bus",0.297883603033782,633959815453
+2020,"COL","Colombia","Transport","transport_cars",0.251788545047855,633959815453
+2020,"ESP","Spain","Transport","TRANSPORT_COOL",0.0155220908019347,1481791211071
+2020,"COL","Colombia","Transport","transport_off",0.0263722541607237,633959815453
+2020,"POL","Poland","Transport","transport_ships",0.00579811138663981,1115561996489
+2020,"KOR","South Korea","Building","buildings_solids",0.0194922490599011,2018293113317
+2020,"COL","Colombia","Energy","energy_gas",0.0476209679021371,633959815453
+2020,"DEU","Germany","Energy","energy_oil",2.69920765986057e-07,3656548839762

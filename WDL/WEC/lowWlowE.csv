@@ -1,0 +1,76 @@
+"year","sector","subsector","rank","iso3c","country","em_pc"
+2020,"Building","BUILD_FGAS",1,"AFG","Afghanistan",0.000227854405245067
+2020,"Building","BUILD_FGAS",2,"CIV","Côte d’Ivoire",0.0138168913850474
+2020,"Building","BUILD_FGAS",3,"GHA","Ghana",0.0146922666458431
+2020,"Building","buildings_gas",1,"COD","Congo - Kinshasa",4.82973214780564e-06
+2020,"Building","buildings_gas",2,"MMR","Myanmar (Burma)",1.04907460576881e-05
+2020,"Building","buildings_gas",3,"AFG","Afghanistan",2.58762100593767e-05
+2020,"Building","buildings_liquids",1,"MMR","Myanmar (Burma)",1.14293917575865e-05
+2020,"Building","buildings_liquids",2,"COD","Congo - Kinshasa",5.4099786564296e-05
+2020,"Building","buildings_liquids",3,"AFG","Afghanistan",0.000483561675484601
+2020,"Building","buildings_solids",1,"MMR","Myanmar (Burma)",0.000587021658789405
+2020,"Building","buildings_solids",2,"AFG","Afghanistan",0.00610996875858369
+2020,"Building","buildings_solids",3,"GHA","Ghana",0.0226734213129262
+2020,"Industry","Cement",1,"AFG","Afghanistan",0.000932365029123572
+2020,"Industry","Cement",2,"COD","Congo - Kinshasa",0.00837697247052676
+2020,"Industry","Cement",3,"UGA","Uganda",0.0223489494064623
+2020,"Industry","Chemicals",1,"KHM","Cambodia",0.00325375673714143
+2020,"Industry","Chemicals",2,"NPL","Nepal",0.00287370860256171
+2020,"Industry","Chemicals",3,"ETH","Ethiopia",0.000988438437110229
+2020,"Agriculture","CROPS",1,"CIV","Côte d’Ivoire",0.107425631359274
+2020,"Agriculture","CROPS",2,"GHA","Ghana",0.107520140298818
+2020,"Agriculture","CROPS",3,"AFG","Afghanistan",0.116030440486
+2020,"Energy","ENE_COMBUST",1,"KHM","Cambodia",0.0137048626396507
+2020,"Energy","ENE_COMBUST",2,"NPL","Nepal",0.0120799955550762
+2020,"Energy","ENE_COMBUST",3,"UGA","Uganda",0.0507379758352906
+2020,"Energy","energy_coal",1,"SDN","Sudan",1.44630113707592e-05
+2020,"Energy","energy_coal",2,"COD","Congo - Kinshasa",0.000266868150574535
+2020,"Energy","energy_coal",3,"UGA","Uganda",0.00644685668338306
+2020,"Energy","energy_gas",1,"KHM","Cambodia",8.92336613166129e-07
+2020,"Energy","energy_gas",2,"ETH","Ethiopia",0.000221589250488735
+2020,"Energy","energy_gas",3,"COD","Congo - Kinshasa",0.000290044078375129
+2020,"Energy","energy_heating",1,"ETH","Ethiopia",4.95369182729307e-06
+2020,"Energy","energy_heating",2,"COD","Congo - Kinshasa",6.80913056903746e-06
+2020,"Energy","energy_heating",3,"KHM","Cambodia",7.65624814096539e-05
+2020,"Energy","energy_oil",1,"COD","Congo - Kinshasa",0.000334699306758119
+2020,"Energy","energy_oil",2,"ETH","Ethiopia",0.000536007147469637
+2020,"Energy","energy_oil",3,"TZA","Tanzania",0.00289819794621808
+2020,"Energy","energy_residual",1,"UGA","Uganda",0.00905131297742229
+2020,"Energy","energy_residual",2,"TZA","Tanzania",0.0112458544771647
+2020,"Energy","energy_residual",3,"COD","Congo - Kinshasa",0.0195228858045463
+2020,"Energy","FF_PROD",1,"UGA","Uganda",1.26959944137625e-07
+2020,"Energy","FF_PROD",2,"NPL","Nepal",2.08519219392941e-05
+2020,"Energy","FF_PROD",3,"ETH","Ethiopia",6.52825815811123e-06
+2020,"Agriculture","LIVESTOCK",1,"COD","Congo - Kinshasa",0.0225418416549128
+2020,"Agriculture","LIVESTOCK",2,"CIV","Côte d’Ivoire",0.0958086976592103
+2020,"Agriculture","LIVESTOCK",3,"GHA","Ghana",0.113013268519965
+2020,"Agriculture","LULUCF",1,"GHA","Ghana",-0.804239907074809
+2020,"Agriculture","LULUCF",2,"AFG","Afghanistan",0.0218650637792102
+2020,"Agriculture","LULUCF",3,"NPL","Nepal",0.454131622037671
+2020,"Industry","Metals",1,"COD","Congo - Kinshasa",1.37200587711668e-05
+2020,"Industry","Metals",2,"AFG","Afghanistan",3.778748135655e-05
+2020,"Industry","Metals",3,"UGA","Uganda",3.2819145559576e-05
+2020,"Industry","Other (industry)",1,"UGA","Uganda",0.0210053111576631
+2020,"Industry","Other (industry)",2,"KHM","Cambodia",0.0609724089519209
+2020,"Industry","Other (industry)",3,"COD","Congo - Kinshasa",0.0213832714818455
+2020,"Transport","transport_air",1,"TZA","Tanzania",0.000293746753506213
+2020,"Transport","transport_air",2,"COD","Congo - Kinshasa",0.00020868514783844
+2020,"Transport","transport_air",3,"UGA","Uganda",0.000572144988256205
+2020,"Transport","transport_bus",1,"AFG","Afghanistan",0.0384509186311279
+2020,"Transport","transport_bus",2,"KHM","Cambodia",0.131505252888196
+2020,"Transport","transport_bus",3,"COD","Congo - Kinshasa",0.0268869944475047
+2020,"Transport","transport_cars",1,"UGA","Uganda",0.00680856556423115
+2020,"Transport","transport_cars",2,"COD","Congo - Kinshasa",0.00482296826062909
+2020,"Transport","transport_cars",3,"CIV","Côte d’Ivoire",0.0241324075320729
+2020,"Transport","TRANSPORT_COOL",1,"COD","Congo - Kinshasa",0.00044203925542949
+2020,"Transport","TRANSPORT_COOL",2,"NPL","Nepal",0.00162494648115646
+2020,"Transport","TRANSPORT_COOL",3,"UGA","Uganda",0.0015603588734421
+2020,"Transport","transport_off",1,"TZA","Tanzania",0.00013801094817597
+2020,"Transport","transport_off",2,"AFG","Afghanistan",0.00252113352175732
+2020,"Transport","transport_off",3,"UGA","Uganda",0.00358964430055651
+2020,"Transport","transport_ships",1,"COD","Congo - Kinshasa",0.000958141944357414
+2020,"Transport","transport_ships",2,"CIV","Côte d’Ivoire",0.00479421438325864
+2020,"Transport","transport_ships",3,"GHA","Ghana",0.00794656801499297
+2020,"Industry","Waste",1,"KHM","Cambodia",0.172779807017335
+2020,"Industry","Waste",2,"NPL","Nepal",0.134975471210948
+2020,"Industry","Waste",3,"AFG","Afghanistan",0.126094745948499

@@ -1,0 +1,83 @@
+---
+title: 'Categories QA Report: Analysing Within Categories'
+author: "Teodor Yankov"
+date: "26/07/2023"
+output: pdf_document
+---
+
+```{r, include = FALSE}
+
+## packages
+pacman::p_load (worlddataverse, tidyverse, countrycode, haven, gtools, readxl, treemapify, Hmisc, viridis, stringr, ggthemes, ggalt, maps, rgeos, maptools, grid, rworldmap, cowplot,gridExtra)
+
+## system font 
+worlddataverse::font_wdl()
+
+## file paths
+base_path <- worlddataverse::get_wdl_path()
+wdp_path <- file.path (base_path,'Mpro_2.0')
+currentwdp_path <- file.path (wdp_path,'01_Data','R_2023_04_11','2023_04_26_ukr_rebase_2017ppp','03_outputs')
+cat_path <- file.path (base_path, "product_categories", "global_expenditure_shares", "03_output")
+
+```
+
+```{r, include = FALSE}
+## loading raw data in
+data <- read_excel (file.path (cat_path, "predictions_all_categories.xlsx")) %>% 
+  
+  # filtering data for category of interest (in the "" insert the category name you want)
+  filter (category == "Food and non-alcoholic beverages")
+```
+
+# Spending per capita
+
+```{r, echo = FALSE}
+data %>%
+  
+  # aggregating into spending per category per year
+  dplyr::group_by (year, category) %>%
+  dplyr::summarise (exp = sum (total_category_exp_ppp, na.rm = T),
+                    total_exp_ppp = sum (total_exp_ppp, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # computing spending per capita
+  mutate (exp_pc = exp / total_hc) %>%
+  
+  # creating plot
+  ggplot (aes (x = factor (year), y = exp_pc)) + 
+  geom_bar (stat = "identity", position = "identity")
+```
+
+Mapping per capita spending per country
+
+```{r, echo = FALSE}
+d2 <- data %>%
+  
+  # aggregating into spending per category per year
+  dplyr::group_by (year, category, ccode) %>%
+  dplyr::summarise (exp = sum (total_category_exp_ppp, na.rm = T),
+                    total_exp_ppp = sum (total_exp_ppp, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # computing spending per capita
+  mutate (exp_pc = exp / total_hc) %>%
+  
+  # filtering for 2023
+  filter (year == 2023) %>% ungroup () %>%
+  
+  # keeping relevant vars
+  dplyr::select (ccode, exp_pc)
+
+# drawing blank world map
+worldmap <- map_data (map = "world")
+
+## creatng spatial polygon data frame 
+world_map <- joinCountryData2Map (d2, joinCode = "ISO3", nameJoinColumn = "ccode")
+
+## building map 
+rworldmap::mapCountryData (world_map, 
+                                  nameColumnToPlot="exp_pc",
+                                  colourPalette = "topo",
+                                  mapTitle = "Choropleth Map: Category spending per capita in 2023 (2017 PPP)",
+                                  addLegend = T)
+```

@@ -1,0 +1,26 @@
+"year","iso3c","country","sector","subsector","em_pc","gdp"
+2020,"ITA","Italy","Agriculture","CROPS",0.16911509639056,1981868193673
+2020,"KOR","South Korea","Agriculture","LIVESTOCK",0.205126503768197,2018293113317
+2020,"TUR","Turkey","Agriculture","LULUCF",-0.69419092744067,2161773542307
+2020,"ESP","Spain","Building","BUILD_FGAS",0.0509616499485514,1481791211071
+2020,"MEX","Mexico","Building","buildings_gas",0.00541660102417294,2093942471639
+2020,"TUR","Turkey","Building","buildings_liquids",0.0659933965164619,2161773542307
+2020,"TUR","Turkey","Energy","ENE_COMBUST",0.0121425594149464,2161773542307
+2020,"FRA","France","Energy","energy_coal",0.027276112379472,2489602669813
+2020,"JPN","Japan","Energy","energy_heating",0.00191259715500807,4786983203847
+2020,"FRA","France","Energy","energy_residual",0.542841076069269,2489602669813
+2020,"JPN","Japan","Energy","FF_PROD",0.0123292231959192,4786983203847
+2020,"GBR","United Kingdom","Industry","Cement",0.0491838685158001,2530568992827
+2020,"ITA","Italy","Industry","Chemicals",0.264409686125381,1981868193673
+2020,"GBR","United Kingdom","Industry","Metals",0.0993351571798276,2530568992827
+2020,"ESP","Spain","Industry","Other (industry)",0.48981805813155,1481791211071
+2020,"GBR","United Kingdom","Industry","Waste",0.154003721363644,2530568992827
+2020,"MEX","Mexico","Transport","transport_air",0.000169552685790763,2093942471639
+2020,"ITA","Italy","Transport","transport_bus",0.431048122475102,1981868193673
+2020,"TUR","Turkey","Transport","transport_cars",0.311609723672042,2161773542307
+2020,"ESP","Spain","Transport","TRANSPORT_COOL",0.0155220908019347,1481791211071
+2020,"KOR","South Korea","Transport","transport_off",0.0334783660222503,2018293113317
+2020,"KOR","South Korea","Transport","transport_ships",0.0125981252633057,2018293113317
+2020,"KOR","South Korea","Building","buildings_solids",0.0194922490599011,2018293113317
+2020,"FRA","France","Energy","energy_gas",0.16706345784859,2489602669813
+2020,"DEU","Germany","Energy","energy_oil",2.69920765986057e-07,3656548839762

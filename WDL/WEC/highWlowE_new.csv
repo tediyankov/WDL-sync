@@ -1,0 +1,76 @@
+"","year","sector","subsector","rank","iso3c","country","em_pc"
+"1",2020,"Building","BUILD_FGAS",1,"ESP","Spain",0.0504870822343018
+"2",2020,"Building","BUILD_FGAS",2,"MEX","Mexico",0.0867866611451952
+"3",2020,"Building","BUILD_FGAS",3,"GBR","United Kingdom",0.0928741411519801
+"4",2020,"Building","buildings_gas",1,"MEX","Mexico",0.00553390978695822
+"5",2020,"Building","buildings_gas",2,"KOR","South Korea",0.108350379940395
+"6",2020,"Building","buildings_gas",3,"JPN","Japan",0.155980650249898
+"7",2020,"Building","buildings_liquids",1,"MEX","Mexico",0.0511236344485805
+"8",2020,"Building","buildings_liquids",2,"TUR","Turkey",0.0668142505945444
+"9",2020,"Building","buildings_liquids",3,"ITA","Italy",0.11851237178684
+"10",2020,"Building","buildings_solids",1,"KOR","South Korea",0.0184944764312128
+"11",2020,"Building","buildings_solids",2,"MEX","Mexico",0.0238408210788175
+"12",2020,"Building","buildings_solids",3,"ESP","Spain",0.17405096083704
+"13",2020,"Industry","Cement",1,"GBR","United Kingdom",0.0496175148996412
+"14",2020,"Industry","Cement",2,"FRA","France",0.0918341206615986
+"15",2020,"Industry","Cement",3,"USA","United States",0.104552178961211
+"16",2020,"Industry","Chemicals",1,"ITA","Italy",0.264056682999841
+"17",2020,"Industry","Chemicals",2,"GBR","United Kingdom",0.265000813861632
+"18",2020,"Industry","Chemicals",3,"FRA","France",0.311889284239672
+"19",2020,"Agriculture","CROPS",1,"ITA","Italy",0.16968798783647
+"20",2020,"Agriculture","CROPS",2,"MEX","Mexico",0.24177384773042
+"21",2020,"Agriculture","CROPS",3,"JPN","Japan",0.246051406443839
+"22",2020,"Energy","ENE_COMBUST",1,"TUR","Turkey",0.00873175201330905
+"23",2020,"Energy","ENE_COMBUST",2,"FRA","France",0.0102964624875525
+"24",2020,"Energy","ENE_COMBUST",3,"JPN","Japan",0.0106755369535836
+"25",2020,"Energy","energy_coal",1,"FRA","France",0.24450035520851
+"26",2020,"Energy","energy_coal",2,"MEX","Mexico",0.395622230824515
+"27",2020,"Energy","energy_coal",3,"GBR","United Kingdom",0.454025031098474
+"28",2020,"Energy","energy_gas",1,"FRA","France",0.389281886794744
+"29",2020,"Energy","energy_gas",2,"MEX","Mexico",0.498840836082816
+"30",2020,"Energy","energy_gas",3,"GBR","United Kingdom",0.776021396347628
+"31",2020,"Energy","energy_heating",1,"JPN","Japan",0.000677835776823898
+"32",2020,"Energy","energy_heating",2,"MEX","Mexico",0.00457642211649405
+"33",2020,"Energy","energy_heating",3,"KOR","South Korea",0.0110387507996692
+"34",2020,"Energy","energy_oil",1,"GBR","United Kingdom",0.0195386673874444
+"35",2020,"Energy","energy_oil",2,"USA","United States",0.0349012479706782
+"36",2020,"Energy","energy_oil",3,"DEU","Germany",0.0615079491665583
+"37",2020,"Energy","energy_residual",1,"FRA","France",0.157311466252156
+"38",2020,"Energy","energy_residual",2,"JPN","Japan",0.202778104104985
+"39",2020,"Energy","energy_residual",3,"ITA","Italy",0.211847979573938
+"40",2020,"Energy","FF_PROD",1,"JPN","Japan",0.0024941677268998
+"41",2020,"Energy","FF_PROD",2,"FRA","France",0.011723383649479
+"42",2020,"Energy","FF_PROD",3,"KOR","South Korea",0.0138485543541013
+"43",2020,"Agriculture","LIVESTOCK",1,"JPN","Japan",0.114790042131881
+"44",2020,"Agriculture","LIVESTOCK",2,"KOR","South Korea",0.205313918925245
+"45",2020,"Agriculture","LIVESTOCK",3,"ITA","Italy",0.310540958792316
+"46",2020,"Agriculture","LULUCF",1,"KOR","South Korea",-0.876533941081933
+"47",2020,"Agriculture","LULUCF",2,"TUR","Turkey",-0.662806298221288
+"48",2020,"Agriculture","LULUCF",3,"ESP","Spain",-0.373711977786192
+"49",2020,"Industry","Metals",1,"GBR","United Kingdom",0.100210961894849
+"50",2020,"Industry","Metals",2,"MEX","Mexico",0.118863094514688
+"51",2020,"Industry","Metals",3,"ITA","Italy",0.130910740952697
+"52",2020,"Industry","Other (industry)",1,"MEX","Mexico",0.445136483872952
+"53",2020,"Industry","Other (industry)",2,"ESP","Spain",0.489054479877294
+"54",2020,"Industry","Other (industry)",3,"GBR","United Kingdom",0.489428669134634
+"55",2020,"Transport","transport_air",1,"MEX","Mexico",0.00017021286172765
+"56",2020,"Transport","transport_air",2,"DEU","Germany",0.0129381611525126
+"57",2020,"Transport","transport_air",3,"TUR","Turkey",0.0220919092136459
+"58",2020,"Transport","transport_bus",1,"ITA","Italy",0.430964007192466
+"59",2020,"Transport","transport_bus",2,"MEX","Mexico",0.548162047685708
+"60",2020,"Transport","transport_bus",3,"GBR","United Kingdom",0.565846005432713
+"61",2020,"Transport","transport_cars",1,"TUR","Turkey",0.311837029817754
+"62",2020,"Transport","transport_cars",2,"MEX","Mexico",0.498278178634606
+"63",2020,"Transport","transport_cars",3,"JPN","Japan",0.787237083982355
+"64",2020,"Transport","TRANSPORT_COOL",1,"ESP","Spain",0.015458919216099
+"65",2020,"Transport","TRANSPORT_COOL",2,"ITA","Italy",0.0170304663928292
+"66",2020,"Transport","TRANSPORT_COOL",3,"CAN","Canada",0.0201599037092835
+"67",2020,"Transport","transport_off",1,"KOR","South Korea",0.0334016952987252
+"68",2020,"Transport","transport_off",2,"GBR","United Kingdom",0.0823223280325306
+"69",2020,"Transport","transport_off",3,"DEU","Germany",0.092335280852557
+"70",2020,"Transport","transport_ships",1,"MEX","Mexico",0.00847841449746357
+"71",2020,"Transport","transport_ships",2,"DEU","Germany",0.00985799713883988
+"72",2020,"Transport","transport_ships",3,"TUR","Turkey",0.0117508953103601
+"73",2020,"Industry","Waste",1,"JPN","Japan",0.0822033824409539
+"74",2020,"Industry","Waste",2,"GBR","United Kingdom",0.155361526296691
+"75",2020,"Industry","Waste",3,"DEU","Germany",0.240542516201381

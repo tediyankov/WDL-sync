@@ -1,0 +1,26 @@
+"year","iso3c","country","sector","subsector","em_pc","gdp"
+2020,"ISL","Iceland","Agriculture","CROPS",0.39817703768624,16204430006
+2020,"ISL","Iceland","Agriculture","LIVESTOCK",1.2001723634239,16204430006
+2020,"TUR","Turkey","Agriculture","LULUCF",-0.69419092744067,2161773542307
+2020,"ISL","Iceland","Building","BUILD_FGAS",0.0228074788197488,16204430006
+2020,"ISL","Iceland","Building","buildings_gas",0.000295062810400234,16204430006
+2020,"ISL","Iceland","Building","buildings_liquids",2.62927256792287e-05,16204430006
+2020,"ISL","Iceland","Energy","ENE_COMBUST",0.00216476774758983,16204430006
+2020,"ISL","Iceland","Energy","energy_coal",7.011393514461e-05,16204430006
+2020,"ISL","Iceland","Energy","energy_gas",0.000154834940111014,16204430006
+2020,"ISL","Iceland","Energy","energy_heating",3.79783815366637e-05,16204430006
+2020,"DEU","Germany","Energy","energy_oil",2.69920765986057e-07,3656548839762
+2020,"ISL","Iceland","Energy","energy_residual",0.0505550686532282,16204430006
+2020,"ISL","Iceland","Energy","FF_PROD",5.8428279287175e-06,16204430006
+2020,"NLD","Netherlands","Industry","Cement",0.0101835661796741,839279131737
+2020,"ISL","Iceland","Industry","Chemicals",0.0929769208296816,16204430006
+2020,"LVA","Latvia","Industry","Metals",0.00108993941904417,49703274073
+2020,"ISL","Iceland","Industry","Other (industry)",0.801837569383582,16204430006
+2020,"LUX","Luxembourg","Industry","Waste",0.0985583180377107,59324867061
+2020,"BEL","Belgium","Transport","transport_air",0.00041966990494098,478679835874
+2020,"ISL","Iceland","Transport","transport_bus",0.476231375985977,16204430006
+2020,"ISL","Iceland","Transport","transport_cars",0.651761612620508,16204430006
+2020,"LVA","Latvia","Transport","TRANSPORT_COOL",0.0222989696059649,49703274073
+2020,"LUX","Luxembourg","Transport","transport_off",0.0559185716669448,59324867061
+2020,"LUX","Luxembourg","Transport","transport_ships",0.000800934423494076,59324867061
+2020,"ISL","Iceland","Building","buildings_solids",6.13496932515337e-05,16204430006

@@ -1,0 +1,3682 @@
+---
+title: "Categories QA report: Comparing Across Categories"
+author: "Teodor Yankov"
+date: "26/07/2023"
+output: 
+  pdf_document:
+    number_sections: true
+---
+
+```{r, include = FALSE}
+
+## packages
+pacman::p_load (worlddataverse, tidyverse, countrycode, haven, gtools, readxl, treemapify, Hmisc, viridis, stringr, ggthemes, ggalt, maps, rgeos, maptools, grid, rworldmap, cowplot,gridExtra, corrplot)
+
+## system font 
+worlddataverse::font_wdl()
+
+## file paths
+base_path <- worlddataverse::get_wdl_path()
+wdp_path <- file.path (base_path,'Mpro_2.0')
+currentwdp_path <- file.path (wdp_path,'01_Data','R_2023_04_11','2023_04_26_ukr_rebase_2017ppp','03_outputs')
+cat_path <- file.path (base_path, "product_categories", "global_expenditure_shares", "03_output")
+
+```
+
+```{r, include = FALSE}
+
+## loading raw data in
+data <- read_excel (file.path (cat_path, "predictions_all_categories.xlsx"))
+
+## shortening category and region names
+data = data %>% 
+  
+  mutate (category = ifelse (category == "Food and non-alcoholic beverages", "food_bev",
+                                           ifelse (category == "Alcoholic beverages, tobacco and narcotics", "alc_narc",
+                                           ifelse (category == "Clothing and footwear", "clothes",
+                                           ifelse (category == "Housing, water, electricity, gas and other fuels", "housing_util",
+                                           ifelse (category == "Furnishings, household equipment and routine household maintenance", "furnish",
+                                           ifelse (category == "Health", "health",
+                                           ifelse (category == "Transport", "transport",
+                                           ifelse (category == "Communications", "comms",
+                                           ifelse (category == "Recreation and culture", "recrea_cult",
+                                           ifelse (category == "Education", "education",
+                                           ifelse (category == "Restaurants and hotels", "rest_hotels",
+                                           ifelse (category == "Miscellaneous goods and services", "misc",
+                                                   NA
+                                           ))))))))))))) %>%
+  mutate (region = ifelse (region == "South Asia", "s_asia",
+                           ifelse (region == "Sub-Saharan Africa", "ssa",
+                           ifelse (region == "Europe & Central Asia", "eur_c_asia",
+                           ifelse (region == "Middle East & North Africa", "mena",
+                           ifelse (region == "Latin America & Caribbean", "latam_car",
+                           ifelse (region == "East Asia & Pacific", "e_asia_pac",
+                           ifelse (region == "North America", "n_am",
+                                   NA
+                           ))))))))
+
+```
+
+
+## Dataset summary
+
+Summary statistics of the dataset
+
+```{r summary, echo=FALSE}
+summary (data)
+```
+
+# Weight of the 12 categories in 2023
+
+## Global 
+
+The following is a set of chart pairs (one pair for PPP, one for Nominal, one for Real). The firts chart in each pair is a bar chart of global spending per category for 2023. The second chart in each pair is a breakdown of category weights in 2023, breaking down the total spending in 2023 into absolute $ and % of spending per category.
+
+```{r, echo=FALSE}
+## total spending in PPP 
+data %>%
+  
+  # aggregating into spending per category per year
+  dplyr::group_by (year, category) %>%
+  dplyr::summarise (exp = sum (total_category_exp_ppp, na.rm = T),
+                    total_exp_ppp = sum (total_exp_ppp, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # computing percentages of total spending
+  mutate (exp_pct = scales::percent (exp / total_exp_ppp, 
+                                     1)) %>%
+  
+  # rescaling exp trillions
+  mutate (exp = exp / 10^12,
+          total_exp_ppp = total_exp_ppp / 10^12) %>%
+  
+  # filter for 2023
+  filter (year == 2023) %>%
+  
+  # adding labels
+  mutate (label = paste0 ("$", round (exp, 1), " ", "T")) %>%
+  
+  # building bar plot
+  ggplot (aes (x = reorder (category, exp), y = exp)) + 
+  geom_bar (stat = "identity", position = "identity") + 
+  geom_text (aes (y = exp, label = label), vjust = -0.5) +
+  labs (title = "2023 global spending per category",
+        subtitle = "2017 PPP",
+        y = "Expenditure, Trillions USD 2017 PPP",
+        x = "Category") + 
+  theme (axis.text.x = element_text (angle = 45, vjust = 0.5)) +
+  worlddataverse::theme_wdl() + 
+  ylim (0,20)
+  
+``` 
+
+```{r, echo=FALSE}
+## % of total spending breakdowns (PPP)
+data %>%
+  
+  # aggregating into spending per category per year
+  dplyr::group_by (year, category) %>%
+  dplyr::summarise (exp = sum (total_category_exp_ppp, na.rm = T),
+                    total_exp_ppp = sum (total_exp_ppp, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # computing percentages of total spending
+  mutate (exp_share = exp / total_exp_ppp, 
+          exp_pct = scales::percent (exp / total_exp_ppp, 
+                                     1)) %>%
+  
+  # rescaling exp trillions
+  mutate (exp = exp / 10^12,
+          total_exp_ppp = total_exp_ppp / 10^12) %>%
+  
+  # filter for 2023
+  filter (year == 2023) %>%
+  
+  # adding labels
+  mutate (label = paste0 ("$", round (exp, 1), " ", "T", "(", exp_pct, ")")) %>%
+  
+  # building bar plot
+  ggplot (aes (x = factor (year), y = exp, fill = category)) + 
+  geom_bar (stat = "identity") + 
+  geom_text (aes (y = exp, label = label, col = category), 
+             position = position_stack (vjust = 0.5)) + 
+  theme_void () + 
+  worlddataverse::scale_fill_wdl() + 
+  scale_color_manual (values = c("white", "white", "white", "black", "black",
+                                 "black", "black", "black", "black", "black",
+                                 "black", "white")) + 
+  labs (title = "2023: spending per category (shown as absolute and percentage of total spending) ",
+        subtitle = "2017 PPP | Note: total spending is 76.3 USD")
+
+```
+
+```{r, echo=FALSE}
+## total spending in Nominal USD
+data %>%
+  
+  # aggregating into spending per category per year
+  dplyr::group_by (year, category) %>%
+  dplyr::summarise (exp = sum (total_category_exp_nominal, na.rm = T),
+                    total_exp_nominal = sum (total_exp_nominal, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # computing percentages of total spending
+  mutate (exp_pct = scales::percent (exp / total_exp_nominal, 
+                                     1)) %>%
+  
+  # rescaling exp trillions
+  mutate (exp = exp / 10^12,
+          total_exp_nominal = total_exp_nominal / 10^12) %>%
+  
+  # filter for 2023
+  filter (year == 2023) %>%
+  
+  # adding labels
+  mutate (label = paste0 ("$", round (exp, 1), " ", "T")) %>%
+  
+  # building bar plot
+  ggplot (aes (x = reorder (category, exp), y = exp)) + 
+  geom_bar (stat = "identity", position = "identity") + 
+  geom_text (aes (y = exp, label = label), vjust = -0.5) +
+  labs (title = "2023 global spending per category",
+        subtitle = "Nominal USD",
+        y = "Expenditure, Trillions USD (Nominal)",
+        x = "Category") + 
+  theme (axis.text.x = element_text (angle = 45, vjust = 0.5)) +
+  worlddataverse::theme_wdl() + 
+  ylim (0,20)
+```
+
+```{r, echo=FALSE}
+## % of total spending breakdowns (PPP)
+data %>%
+  
+  # aggregating into spending per category per year
+  dplyr::group_by (year, category) %>%
+  dplyr::summarise (exp = sum (total_category_exp_nominal, na.rm = T),
+                    total_exp_nominal = sum (total_exp_nominal, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # computing percentages of total spending
+  mutate (exp_share = exp / total_exp_nominal, 
+          exp_pct = scales::percent (exp / total_exp_nominal, 
+                                     1)) %>%
+  
+  # rescaling exp trillions
+  mutate (exp = exp / 10^12,
+          total_exp_nominal = total_exp_nominal / 10^12) %>%
+  
+  # filter for 2023
+  filter (year == 2023) %>%
+  
+  # adding labels
+  mutate (label = paste0 ("$", round (exp, 1), " ", "T", "(", exp_pct, ")")) %>%
+  
+  # building bar plot
+  ggplot (aes (x = factor (year), y = exp, fill = category)) + 
+  geom_bar (stat = "identity") + 
+  geom_text (aes (y = exp, label = label, col = category), 
+             position = position_stack (vjust = 0.5)) + 
+  theme_void () + 
+  worlddataverse::scale_fill_wdl() + 
+  scale_color_manual (values = c("white", "white", "white", "black", "black",
+                                 "black", "black", "black", "black", "black",
+                                 "black", "white")) + 
+  labs (title = "2023: spending per category (shown as absolute and percentage of total spending) ",
+        subtitle = "Nominal USD | Note: total spending is 58.7 T USD")
+
+```
+
+```{r, echo=FALSE}
+## total spending in Real USD (2023 USD)
+data %>%
+  
+  # aggregating into spending per category per year
+  dplyr::group_by (year, category) %>%
+  dplyr::summarise (exp = sum (total_category_exp_real, na.rm = T),
+                    total_exp_real = mean (total_exp_real, na.rm = T),
+                    total_hc = mean (total_hc, na.rm = T)) %>%
+  
+  # computing percentages of total spending
+  mutate (exp_pct = scales::percent (exp / total_exp_real, 
+                                     1)) %>%
+  
+  # rescaling exp trillions
+  mutate (exp = exp / 10^12,
+          total_exp_real = total_exp_real / 10^12) %>%
+  
+  # filter for 2023
+  filter (year == 2023) %>%
+  
+  # adding labels
+  mutate (label = paste0 ("$", round (exp, 1), " ", "T")) %>%
+  
+  # building bar plot
+  ggplot (aes (x = reorder (category, exp), y = exp)) + 
+  geom_bar (stat = "identity", position = "identity") + 
+  geom_text (aes (y = exp, label = label), vjust = -0.5) +
+  labs (title = "2023 global spending per category",
+        subtitle = "Real 2023 USD",
+        y = "Expenditure, Trillions USD (Real 2023 USD)",
+        x = "Category") + 
+  theme (axis.text.x = element_text (angle = 45, vjust = 0.5)) +
+  worlddataverse::theme_wdl() + 
+  ylim (0,20)
+
+```
+
+```{r, echo=FALSE}
+## % of total spending breakdowns (PPP)
+data %>%
+  
+  # aggregating into spending per category per year
+  dplyr::group_by (year, category) %>%
+  dplyr::summarise (exp = sum (total_category_exp_real, na.rm = T),
+                    total_exp_real = mean (total_exp_real, na.rm = T),
+                    total_hc = mean (total_hc, na.rm = T)) %>%
+  
+  # computing percentages of total spending
+  mutate (exp_share = exp / total_exp_real, 
+          exp_pct = scales::percent (exp / total_exp_real, 
+                                     1)) %>%
+  
+  # rescaling exp trillions
+  mutate (exp = exp / 10^12,
+          total_exp_real = total_exp_real / 10^12) %>%
+  
+  # filter for 2023
+  filter (year == 2023) %>%
+  
+  # adding labels
+  mutate (label = paste0 ("$", round (exp, 1), " ", "T", "(", exp_pct, ")")) %>%
+  
+  # building bar plot
+  ggplot (aes (x = factor (year), y = exp, fill = category)) + 
+  geom_bar (stat = "identity") + 
+  geom_text (aes (y = exp, label = label, col = category), 
+             position = position_stack (vjust = 0.5)) + 
+  theme_void () + 
+  worlddataverse::scale_fill_wdl() + 
+  scale_color_manual (values = c("white", "white", "white", "black", "black",
+                                 "black", "black", "black", "black", "black",
+                                 "black", "white")) + 
+  labs (title = "2023: spending per category (shown as absolute and percentage of total spending) ",
+        subtitle = "Real 2023 USD | Note: total spending is 58.7 USD")
+
+```
+
+## Regional
+
+The following is some charts (one for PPP, nominal and real), which replicate for every region the second chart from the chart pairs above (breakdown of category weights in 2023, breaking down the total spending in 2023 into absolute $ and % of spending per category).
+
+First, here is a chart which shows the total spending per region (to use as a reference for the charts afterwards)
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating into spending per category per year per region
+  dplyr::group_by (year, category, region) %>%
+  dplyr::summarise (total_exp_ppp = sum (total_exp_ppp, na.rm = T),
+                    total_exp_nominal = sum (total_exp_nominal, na.rm = T),
+                    total_exp_real = sum (total_exp_real, na.rm = T)) %>%
+  
+  # filtering for 2023
+  filter (year == 2023) %>%
+  
+  # scaling all into trillions
+  mutate (total_exp_ppp = total_exp_ppp / 10^12,
+          total_exp_nominal = total_exp_nominal / 10^12,
+          total_exp_real = total_exp_real / 10^12) %>%
+  
+  # elongating 
+  pivot_longer (4:6, names_to = "expenditure_type", values_to = "exp") %>%
+  
+  # adding label
+  mutate (label = paste0 ("$", round (exp, 1), "T")) %>%
+  
+  # building plot
+  ggplot (aes (x = region, y = exp, fill = expenditure_type)) + 
+  geom_bar (stat = "identity", position = "dodge") + 
+  geom_text (aes (y = exp, label = label), 
+             position = position_dodge ()) + 
+  worlddataverse::theme_wdl () + 
+  labs (title = "Global Spending Per Region, 2023",
+        y = "Spending, Trillions USD") + 
+  theme (axis.text.x = element_text (angle = 360))
+  
+```
+
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating into spending per category per year per region
+  dplyr::group_by (year, category, region) %>%
+  dplyr::summarise (exp = sum (total_category_exp_ppp, na.rm = T),
+                    total_exp_ppp = sum (total_exp_ppp, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # computing percentages of total spending
+  mutate (exp_share = exp / total_exp_ppp, 
+          exp_pct = scales::percent (exp / total_exp_ppp, 
+                                     1)) %>%
+  
+  # rescaling exp trillions
+  mutate (exp = exp / 10^12,
+          total_exp_ppp = total_exp_ppp / 10^12) %>%
+  
+  # filter for 2023
+  filter (year == 2023) %>%
+  
+  # adding labels
+  mutate (label = paste0 ("$", round (exp, 1), " ", "T", "(", exp_pct, ")")) %>%
+  
+  # building bar plot
+  ggplot (aes (x = year, y = exp_share, fill = category)) + 
+  geom_bar (stat = "identity") + 
+  geom_text (aes (y = exp_share, label = label, col = category), 
+             position = position_stack (vjust = 0.5),
+             size = 3) + 
+  theme_void() + 
+  worlddataverse::scale_fill_wdl() + 
+  scale_color_manual (values = c("white", "white", "white", "black", "black",
+                                 "black", "black", "black", "black", "black",
+                                 "black", "white")) + 
+  facet_wrap (~region, nrow = 1, ncol = 12) + 
+  theme (legend.position = "bottom") +
+  labs (title = "2023: spending per category (shown as absolute and percentage of total spending) ",
+        subtitle = "2017 PPP")
+```
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating into spending per category per year per region
+  dplyr::group_by (year, category, region) %>%
+  dplyr::summarise (exp = sum (total_category_exp_nominal, na.rm = T),
+                    total_exp_nominal = sum (total_exp_nominal, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # computing percentages of total spending
+  mutate (exp_share = exp / total_exp_nominal, 
+          exp_pct = scales::percent (exp / total_exp_nominal, 
+                                     1)) %>%
+  
+  # rescaling exp trillions
+  mutate (exp = exp / 10^12,
+          total_exp_nominal = total_exp_nominal / 10^12) %>%
+  
+  # filter for 2023
+  filter (year == 2023) %>%
+  
+  # adding labels
+  mutate (label = paste0 ("$", round (exp, 1), " ", "T", "(", exp_pct, ")")) %>%
+  
+  # building bar plot
+  ggplot (aes (x = year, y = exp_share, fill = category)) + 
+  geom_bar (stat = "identity") + 
+  geom_text (aes (y = exp_share, label = label, col = category), 
+             position = position_stack (vjust = 0.5),
+             size = 3) + 
+  theme_void() + 
+  worlddataverse::scale_fill_wdl() + 
+  scale_color_manual (values = c("white", "white", "white", "black", "black",
+                                 "black", "black", "black", "black", "black",
+                                 "black", "white")) + 
+  facet_wrap (~region, nrow = 1, ncol = 12) + 
+  theme (legend.position = "bottom") +
+  labs (title = "2023: spending per category (shown as absolute and percentage of total spending) ",
+        subtitle = "Nominal USD")
+```
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating into spending per category per year per region
+  dplyr::group_by (year, category, region) %>%
+  dplyr::summarise (exp = sum (total_category_exp_real, na.rm = T),
+                    total_exp_real = sum (total_exp_real, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # computing percentages of total spending
+  mutate (exp_share = exp / total_exp_real, 
+          exp_pct = scales::percent (exp / total_exp_real, 
+                                     1)) %>%
+  
+  # rescaling exp trillions
+  mutate (exp = exp / 10^12,
+          total_exp_real = total_exp_real / 10^12) %>%
+  
+  # filter for 2023
+  filter (year == 2023) %>%
+  
+  # adding labels
+  mutate (label = paste0 ("$", round (exp, 1), " ", "T", "(", exp_pct, ")")) %>%
+  
+  # building bar plot
+  ggplot (aes (x = year, y = exp_share, fill = category)) + 
+  geom_bar (stat = "identity") + 
+  geom_text (aes (y = exp_share, label = label, col = category), 
+             position = position_stack (vjust = 0.5),
+             size = 3) + 
+  theme_void() + 
+  worlddataverse::scale_fill_wdl() + 
+  scale_color_manual (values = c("white", "white", "white", "black", "black",
+                                 "black", "black", "black", "black", "black",
+                                 "black", "white")) + 
+  facet_wrap (~region, nrow = 1, ncol = 12) + 
+  theme (legend.position = "bottom") +
+  labs (title = "2023: spending per category (shown as absolute and percentage of total spending) ",
+        subtitle = "Real 2023 USD")
+```
+
+## Top 20 countries (by total spending)
+
+```{r, echo=FALSE}
+## isolating top 20 countries in 2023 by total spending
+top20 = data %>%
+  
+  # filtering for 2023
+  filter (year == 2023) %>%
+  
+  # keeping only relevant vars
+  dplyr::select (ccode, total_exp_ppp, total_exp_nominal, total_exp_real) %>%
+  
+  # keeping only unique values (1 row per country-year)
+  distinct () 
+
+top20_ppp <- top20 %>% arrange (desc (total_exp_ppp)) %>% slice_head (n = 20)
+top20_nominal <- top20 %>% arrange (desc (total_exp_nominal)) %>% slice_head (n = 20)
+top20_real <- top20 %>% arrange (desc (total_exp_real)) %>% slice_head (n = 20)
+
+dat_top20_ppp <- data %>% filter (ccode %in% unique (top20_ppp$ccode))
+dat_top20_nominal <- data %>% filter (ccode %in% unique (top20_nominal$ccode))
+dat_top20_ppp_real <- data %>% filter (ccode %in% unique (top20_real$ccode))
+```
+
+Here are the top 20 countries when you order by total spending in PPP (first plot) and in Nominal / Real USD (second plot). The rankings are slightly different hence why it shows both.
+
+```{r, echo=FALSE}
+## building plots
+dat_top20_ppp %>%
+  
+  # aggregating into spending per year per country
+  dplyr::group_by (year, ccode) %>%
+  dplyr::summarise (total_exp_ppp = mean (total_exp_ppp, na.rm = T),
+                    total_exp_nominal = mean (total_exp_nominal, na.rm = T),
+                    total_exp_real = mean (total_exp_real, na.rm = T)) %>%
+  
+  # rescaling exp trillions
+  mutate (total_exp_ppp = total_exp_ppp / 10^12,
+          total_exp_nominal = total_exp_nominal / 10^12,
+          total_exp_real = total_exp_real / 10^12) %>%
+  
+  # filter for 2023
+  filter (year == 2023) %>%
+  
+  # elongating 
+  pivot_longer (3:5, names_to = "expenditure_type", values_to = "exp") %>%
+  
+  # adding labels
+  mutate (label = paste0 (round (exp, 1), " ", "T")) %>%
+  
+  # building bar plot
+  ggplot (aes (x = reorder (ccode,-exp), y = exp)) +
+  geom_bar (stat = "identity", position = "stack") + 
+  geom_text (aes (label = label), vjust = -0.5, size = 3) + 
+  #worlddataverse::theme_wdl() + 
+  worlddataverse::scale_fill_wdl() + 
+  theme (axis.text.x = element_text (angle = 360),
+         legend.position = "bottom") + 
+  ylim (0,25) + 
+  facet_wrap (~expenditure_type, scales = "free_x", nrow = 3, ncol = 1) +
+  labs (title = "Top 20 countries by total spending in 2017 PPP",
+        x = "Country",
+        y = "Spending (Trillions USD)")
+```
+
+```{r, echo=FALSE}
+## building plots
+dat_top20_nominal %>%
+  
+  # aggregating into spending per year per country
+  dplyr::group_by (year, ccode) %>%
+  dplyr::summarise (total_exp_ppp = mean (total_exp_ppp, na.rm = T),
+                    total_exp_nominal = mean (total_exp_nominal, na.rm = T),
+                    total_exp_real = mean (total_exp_real, na.rm = T)) %>%
+  
+  # rescaling exp trillions
+  mutate (total_exp_ppp = total_exp_ppp / 10^12,
+          total_exp_nominal = total_exp_nominal / 10^12,
+          total_exp_real = total_exp_real / 10^12) %>%
+  
+  # filter for 2023
+  filter (year == 2023) %>%
+  
+  # elongating 
+  pivot_longer (3:5, names_to = "expenditure_type", values_to = "exp") %>%
+  
+  # adding labels
+  mutate (label = paste0 (round (exp, 1), " ", "T")) %>%
+  
+  # building bar plot
+  ggplot (aes (x = reorder (ccode,-exp), y = exp)) +
+  geom_bar (stat = "identity", position = "stack") + 
+  geom_text (aes (label = label), vjust = -0.5, size = 3) + 
+  #worlddataverse::theme_wdl() + 
+  worlddataverse::scale_fill_wdl() + 
+  theme (axis.text.x = element_text (angle = 360),
+         legend.position = "bottom") + 
+  ylim (0,25) + 
+  facet_wrap (~expenditure_type, scales = "free_x", nrow = 3, ncol = 1) +
+  labs (title = "Top 20 countries by total spending in Nominal USD (same order as Real 2023 USD)",
+        x = "Country",
+        y = "Spending (Trillions USD)")
+```
+
+Here is a breakdown of category weights for the top 20 countries by PPP total spend (first plot) and Nominal/Real USD (second plot)
+
+```{r, echo=FALSE}
+## building plots
+dat_top20_ppp %>%
+  
+  # aggregating into spending per category per year per region
+  dplyr::group_by (year, category, ccode) %>%
+  dplyr::summarise (exp = sum (total_category_exp_real, na.rm = T),
+                    total_exp_real = mean (total_exp_real, na.rm = T),
+                    total_hc = mean (total_hc, na.rm = T)) %>%
+  
+  # computing percentages of total spending
+  mutate (exp_share = exp / total_exp_real, 
+          exp_pct = scales::percent (exp / total_exp_real, 
+                                     1)) %>%
+  
+  # rescaling exp trillions
+  mutate (exp = exp / 10^9,
+          total_exp_real = total_exp_real / 10^9) %>%
+  
+  # filter for 2023
+  filter (year == 2023) %>%
+  
+  # adding labels
+  mutate (label = paste0 ("$", round (exp, 1), " ", "B", "(", exp_pct, ")")) %>%
+  
+  # building bar plot
+  ggplot (aes (x = year, y = exp_share, fill = category)) + 
+  geom_bar (stat = "identity") + 
+  geom_text (aes (y = exp_share, label = label, col = category), 
+             position = position_stack (vjust = 0.5),
+             size = 2) + 
+  theme_void() + 
+  worlddataverse::scale_fill_wdl() + 
+  scale_color_manual (values = c("white", "white", "white", "black", "black",
+                                 "black", "black", "black", "black", "black",
+                                 "black", "white")) + 
+  facet_wrap (~ccode, nrow = 2, ncol = 10) + 
+  theme (legend.position = "right") +
+  labs (title = "2023: spending per category (shown as absolute and percentage of total spending) ",
+        subtitle = "2017 PPP")
+```
+
+```{r, echo=FALSE}
+## building plots
+dat_top20_nominal %>%
+  
+  # aggregating into spending per category per year per region
+  dplyr::group_by (year, category, ccode) %>%
+  dplyr::summarise (exp = sum (total_category_exp_real, na.rm = T),
+                    total_exp_real = mean (total_exp_real, na.rm = T),
+                    total_hc = mean (total_hc, na.rm = T)) %>%
+  
+  # computing percentages of total spending
+  mutate (exp_share = exp / total_exp_real, 
+          exp_pct = scales::percent (exp / total_exp_real, 
+                                     1)) %>%
+  
+  # rescaling exp trillions
+  mutate (exp = exp / 10^9,
+          total_exp_real = total_exp_real / 10^9) %>%
+  
+  # filter for 2023
+  filter (year == 2023) %>%
+  
+  # adding labels
+  mutate (label = paste0 ("$", round (exp, 1), " ", "B", "(", exp_pct, ")")) %>%
+  
+  # building bar plot
+  ggplot (aes (x = year, y = exp_share, fill = category)) + 
+  geom_bar (stat = "identity") + 
+  geom_text (aes (y = exp_share, label = label, col = category), 
+             position = position_stack (vjust = 0.5),
+             size = 2) + 
+  theme_void() + 
+  worlddataverse::scale_fill_wdl() + 
+  scale_color_manual (values = c("white", "white", "white", "black", "black",
+                                 "black", "black", "black", "black", "black",
+                                 "black", "white")) + 
+  facet_wrap (~ccode, nrow = 2, ncol = 10) + 
+  theme (legend.position = "right") +
+  labs (title = "2023: spending per category (shown as absolute and percentage of total spending) ",
+        subtitle = "Nominal / Real 2023 USD")
+```
+
+# Projected growth of categories
+
+```{r, include = FALSE}
+
+## CAGR function
+CAGR_fun <- function (x) {
+  if (length (x) < 1L)
+    return (numeric ())
+  out <- (x / x [[1L]]) ^ (1 / (seq_along (x) - 1)) - 1
+  out [[1L]] <- NA_real_
+  out
+}
+
+```
+
+## Global growth
+
+These are the global spending per category values for 2023, 2024 and 2030
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating
+  dplyr::group_by (year, category) %>%
+  dplyr::summarise (exp = sum (total_category_exp_ppp, na.rm = T) / 10^12,
+                    total_exp_ppp = sum (total_exp_ppp, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # filtering for years of interest
+  filter (year %in% 2023:2030) %>%
+  
+  # adding CAGRs
+  dplyr::group_by (category) %>%
+  mutate (CAGR = (CAGR_fun (exp)) * 100) %>% ungroup () %>%
+  
+  # filtering for years of interest
+  filter (year %in% c(2023, 2024, 2030)) %>%
+  
+  # widening
+  #pivot_wider (names_from = "year", values_from = 3:6) %>%
+  
+  # computing absolute growth 
+  dplyr::group_by (category) %>%
+  mutate (lagged = Hmisc::Lag (exp),
+          delta = exp - lagged) %>% ungroup () %>%
+  
+  # adding labels
+  mutate (label = paste0 ("$", round (exp, 1), " ", "T"),
+          label = ifelse (year == 2023, " ", label)) %>%
+  
+  # building chart 
+  ggplot (aes (x = category, y = exp, fill = factor (year))) + 
+  geom_bar (stat = "identity", position = "dodge") + 
+  scale_fill_manual (values = c("#A8C3BC", "#697F79", "#274234")) + 
+  geom_text (aes (label = label), position = position_dodge (width = 1), angle = 90, hjust = -0.1) +
+  ylim (0,35) + 
+  worlddataverse::theme_wdl() + 
+  theme (legend.position = "bottom",
+         axis.text.x = element_text (angle = 45)) + 
+  labs (title = "Global spending per category: 2023, 2024 and 2030", 
+        subtitle = "2017 PPP", 
+        y = "expenditure, Trillions USD 2017 PPP")
+  
+```
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating
+  dplyr::group_by (year, category) %>%
+  dplyr::summarise (exp = sum (total_category_exp_nominal, na.rm = T) / 10^12,
+                    total_exp_ppp = sum (total_exp_nominal, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # filtering for years of interest
+  filter (year %in% 2023:2030) %>%
+  
+  # adding CAGRs
+  dplyr::group_by (category) %>%
+  mutate (CAGR = (CAGR_fun (exp)) * 100) %>% ungroup () %>%
+  
+  # filtering for years of interest
+  filter (year %in% c(2023, 2024, 2030)) %>%
+  
+  # widening
+  #pivot_wider (names_from = "year", values_from = 3:6) %>%
+  
+  # computing absolute growth 
+  dplyr::group_by (category) %>%
+  mutate (lagged = Hmisc::Lag (exp),
+          delta = exp - lagged) %>% ungroup () %>%
+  
+  # adding labels
+  mutate (label = paste0 ("$", round (exp, 1), " ", "T"),
+          label = ifelse (year == 2023, " ", label)) %>%
+  
+  # building chart 
+  ggplot (aes (x = category, y = exp, fill = factor (year))) + 
+  geom_bar (stat = "identity", position = "dodge") + 
+  scale_fill_manual (values = c("#A8C3BC", "#697F79", "#274234")) + 
+  geom_text (aes (label = label), position = position_dodge (width = 1), angle = 90, hjust = -0.1) +
+  ylim (0,35) + 
+  worlddataverse::theme_wdl() + 
+  theme (legend.position = "bottom",
+         axis.text.x = element_text (angle = 45)) + 
+  labs (title = "Global spending per category: 2023, 2024 and 2030", 
+        subtitle = "Nominal USD", 
+        y = "expenditure, Trillions USD Nominal USD")
+  
+```
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating
+  dplyr::group_by (year, category) %>%
+  dplyr::summarise (exp = sum (total_category_exp_real, na.rm = T) / 10^12,
+                    total_exp_ppp = sum (total_exp_real, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # filtering for years of interest
+  filter (year %in% 2023:2030) %>%
+  
+  # adding CAGRs
+  dplyr::group_by (category) %>%
+  mutate (CAGR = (CAGR_fun (exp)) * 100) %>% ungroup () %>%
+  
+  # filtering for years of interest
+  filter (year %in% c(2023, 2024, 2030)) %>%
+  
+  # widening
+  #pivot_wider (names_from = "year", values_from = 3:6) %>%
+  
+  # computing absolute growth 
+  dplyr::group_by (category) %>%
+  mutate (lagged = Hmisc::Lag (exp),
+          delta = exp - lagged) %>% ungroup () %>%
+  
+  # adding labels
+  mutate (label = paste0 ("$", round (exp, 1), " ", "T"),
+          label = ifelse (year == 2023, " ", label)) %>%
+  
+  # building chart 
+  ggplot (aes (x = category, y = exp, fill = factor (year))) + 
+  geom_bar (stat = "identity", position = "dodge") + 
+  scale_fill_manual (values = c("#A8C3BC", "#697F79", "#274234")) + 
+  geom_text (aes (label = label), position = position_dodge (width = 1), angle = 90, hjust = -0.1) +
+  ylim (0,35) + 
+  worlddataverse::theme_wdl() + 
+  theme (legend.position = "bottom",
+         axis.text.x = element_text (angle = 45)) + 
+  labs (title = "Global spending per category: 2023, 2024 and 2030", 
+        subtitle = "Real 2023 USD", 
+        y = "expenditure, Trillions USD Real 2023 USD")
+  
+```
+
+This is the global figures with the absolute growth added
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating
+  dplyr::group_by (year, category) %>%
+  dplyr::summarise (exp = sum (total_category_exp_ppp, na.rm = T) / 10^12,
+                    total_exp_ppp = sum (total_exp_ppp, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # filtering for years of interest
+  filter (year %in% 2023:2030) %>%
+  
+  # adding CAGRs
+  dplyr::group_by (category) %>%
+  mutate (CAGR = (CAGR_fun (exp)) * 100) %>% ungroup () %>%
+  
+  # filtering for years of interest
+  filter (year %in% c(2023, 2024, 2030)) %>%
+  
+  # widening
+  #pivot_wider (names_from = "year", values_from = 3:6) %>%
+  
+  # computing absolute growth 
+  dplyr::group_by (category) %>%
+  mutate (lagged = Hmisc::Lag (exp),
+          delta = exp - lagged) %>% ungroup () %>%
+  
+  # adding labels
+  mutate (label = paste0 ("+", " ", "$", round (delta, 1), " ", "T"),
+          label = ifelse (year == 2023, " ", label)) %>%
+  
+  # building chart 
+  ggplot (aes (x = category, y = exp, fill = factor (year))) + 
+  geom_bar (stat = "identity", position = "dodge") + 
+  scale_fill_manual (values = c("#A8C3BC", "#697F79", "#274234")) + 
+  geom_text (aes (label = label), position = position_dodge (width = 1), angle = 90, hjust = -0.1) +
+  ylim (0,35) + 
+  worlddataverse::theme_wdl() + 
+  theme (legend.position = "bottom",
+         axis.text.x = element_text (angle = 45)) + 
+  labs (title = "Global spending per category: 2023, 2024 and 2030", 
+        subtitle = "2017 PPP", 
+        y = "expenditure, Trillions USD 2017 PPP")
+  
+```
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating
+  dplyr::group_by (year, category) %>%
+  dplyr::summarise (exp = sum (total_category_exp_nominal, na.rm = T) / 10^12,
+                    total_exp_ppp = sum (total_exp_nominal, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # filtering for years of interest
+  filter (year %in% 2023:2030) %>%
+  
+  # adding CAGRs
+  dplyr::group_by (category) %>%
+  mutate (CAGR = (CAGR_fun (exp)) * 100) %>% ungroup () %>%
+  
+  # filtering for years of interest
+  filter (year %in% c(2023, 2024, 2030)) %>%
+  
+  # widening
+  #pivot_wider (names_from = "year", values_from = 3:6) %>%
+  
+  # computing absolute growth 
+  dplyr::group_by (category) %>%
+  mutate (lagged = Hmisc::Lag (exp),
+          delta = exp - lagged) %>% ungroup () %>%
+  
+  # adding labels
+  mutate (label = paste0 ("+", " ", "$", round (delta, 1), " ", "T"),
+          label = ifelse (year == 2023, " ", label)) %>%
+  
+  # building chart 
+  ggplot (aes (x = category, y = exp, fill = factor (year))) + 
+  geom_bar (stat = "identity", position = "dodge") + 
+  scale_fill_manual (values = c("#A8C3BC", "#697F79", "#274234")) + 
+  geom_text (aes (label = label), position = position_dodge (width = 1), angle = 90, hjust = -0.1) +
+  ylim (0,35) + 
+  worlddataverse::theme_wdl() + 
+  theme (legend.position = "bottom",
+         axis.text.x = element_text (angle = 45)) + 
+  labs (title = "Global spending per category: 2023, 2024 and 2030", 
+        subtitle = "Nominal USD", 
+        y = "expenditure, Trillions USD Nominal")
+  
+```
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating
+  dplyr::group_by (year, category) %>%
+  dplyr::summarise (exp = sum (total_category_exp_real, na.rm = T) / 10^12,
+                    total_exp_ppp = sum (total_exp_real, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # filtering for years of interest
+  filter (year %in% 2023:2030) %>%
+  
+  # adding CAGRs
+  dplyr::group_by (category) %>%
+  mutate (CAGR = (CAGR_fun (exp)) * 100) %>% ungroup () %>%
+  
+  # filtering for years of interest
+  filter (year %in% c(2023, 2024, 2030)) %>%
+  
+  # widening
+  #pivot_wider (names_from = "year", values_from = 3:6) %>%
+  
+  # computing absolute growth 
+  dplyr::group_by (category) %>%
+  mutate (lagged = Hmisc::Lag (exp),
+          delta = exp - lagged) %>% ungroup () %>%
+  
+  # adding labels
+  mutate (label = paste0 ("+", " ", "$", round (delta, 1), " ", "T"),
+          label = ifelse (year == 2023, " ", label)) %>%
+  
+  # building chart 
+  ggplot (aes (x = category, y = exp, fill = factor (year))) + 
+  geom_bar (stat = "identity", position = "dodge") + 
+  scale_fill_manual (values = c("#A8C3BC", "#697F79", "#274234")) + 
+  geom_text (aes (label = label), position = position_dodge (width = 1), angle = 90, hjust = -0.1) +
+  ylim (0,35) + 
+  worlddataverse::theme_wdl() + 
+  theme (legend.position = "bottom",
+         axis.text.x = element_text (angle = 45)) + 
+  labs (title = "Global spending per category: 2023, 2024 and 2030", 
+        subtitle = "Real 2023 USD", 
+        y = "expenditure, Trillions USD Real 2023")
+  
+```
+
+This is the global figures with the CAGRs added
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating
+  dplyr::group_by (year, category) %>%
+  dplyr::summarise (exp = sum (total_category_exp_ppp, na.rm = T) / 10^12,
+                    total_exp_ppp = sum (total_exp_ppp, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # filtering for years of interest
+  filter (year %in% 2023:2030) %>%
+  
+  # adding CAGRs
+  dplyr::group_by (category) %>%
+  mutate (CAGR = (CAGR_fun (exp))) %>% ungroup () %>%
+  
+  # filtering for years of interest
+  filter (year %in% c(2023, 2024, 2030)) %>%
+  
+  # widening
+  #pivot_wider (names_from = "year", values_from = 3:6) %>%
+  
+  # computing absolute growth 
+  dplyr::group_by (category) %>%
+  mutate (lagged = Hmisc::Lag (exp),
+          delta = exp - lagged) %>% ungroup () %>%
+  
+  # adding labels
+  mutate (label = paste0 ("+", round (CAGR * 100, 1), "%"),
+          label = ifelse (year == 2023, " ", label)) %>%
+  
+  # building chart 
+  ggplot (aes (x = category, y = exp, fill = factor (year))) + 
+  geom_bar (stat = "identity", position = "dodge") + 
+  scale_fill_manual (values = c("#A8C3BC", "#697F79", "#274234")) + 
+  geom_text (aes (label = label), position = position_dodge (width = 1), angle = 90, hjust = -0.1) +
+  ylim (0,35) + 
+  worlddataverse::theme_wdl() + 
+  theme (legend.position = "bottom",
+         axis.text.x = element_text (angle = 45)) + 
+  labs (title = "Global spending per category: 2023, 2024 and 2030", 
+        subtitle = "2017 PPP", 
+        y = "expenditure, Trillions USD 2017 PPP")
+  
+```
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating
+  dplyr::group_by (year, category) %>%
+  dplyr::summarise (exp = sum (total_category_exp_nominal, na.rm = T) / 10^12,
+                    total_exp_ppp = sum (total_exp_nominal, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # filtering for years of interest
+  filter (year %in% 2023:2030) %>%
+  
+  # adding CAGRs
+  dplyr::group_by (category) %>%
+  mutate (CAGR = (CAGR_fun (exp))) %>% ungroup () %>%
+  
+  # filtering for years of interest
+  filter (year %in% c(2023, 2024, 2030)) %>%
+  
+  # widening
+  #pivot_wider (names_from = "year", values_from = 3:6) %>%
+  
+  # computing absolute growth 
+  dplyr::group_by (category) %>%
+  mutate (lagged = Hmisc::Lag (exp),
+          delta = exp - lagged) %>% ungroup () %>%
+  
+  # adding labels
+  mutate (label = paste0 ("+", round (CAGR * 100, 1), "%"),
+          label = ifelse (year == 2023, " ", label)) %>%
+  
+  # building chart 
+  ggplot (aes (x = category, y = exp, fill = factor (year))) + 
+  geom_bar (stat = "identity", position = "dodge") + 
+  scale_fill_manual (values = c("#A8C3BC", "#697F79", "#274234")) + 
+  geom_text (aes (label = label), position = position_dodge (width = 1), angle = 90, hjust = -0.1) +
+  ylim (0,35) + 
+  worlddataverse::theme_wdl() + 
+  theme (legend.position = "bottom",
+         axis.text.x = element_text (angle = 45)) + 
+  labs (title = "Global spending per category: 2023, 2024 and 2030", 
+        subtitle = "Nominal USD", 
+        y = "expenditure, Trillions USD Nominal")
+  
+```
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating
+  dplyr::group_by (year, category) %>%
+  dplyr::summarise (exp = sum (total_category_exp_real, na.rm = T) / 10^12,
+                    total_exp_ppp = sum (total_exp_real, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # filtering for years of interest
+  filter (year %in% 2023:2030) %>%
+  
+  # adding CAGRs
+  dplyr::group_by (category) %>%
+  mutate (CAGR = (CAGR_fun (exp))) %>% ungroup () %>%
+  
+  # filtering for years of interest
+  filter (year %in% c(2023, 2024, 2030)) %>%
+  
+  # widening
+  #pivot_wider (names_from = "year", values_from = 3:6) %>%
+  
+  # computing absolute growth 
+  dplyr::group_by (category) %>%
+  mutate (lagged = Hmisc::Lag (exp),
+          delta = exp - lagged) %>% ungroup () %>%
+  
+  # adding labels
+  mutate (label = paste0 ("+", round (CAGR * 100, 1), "%"),
+          label = ifelse (year == 2023, " ", label)) %>%
+  
+  # building chart 
+  ggplot (aes (x = category, y = exp, fill = factor (year))) + 
+  geom_bar (stat = "identity", position = "dodge") + 
+  scale_fill_manual (values = c("#A8C3BC", "#697F79", "#274234")) + 
+  geom_text (aes (label = label), position = position_dodge (width = 1), angle = 90, hjust = -0.1) +
+  ylim (0,35) + 
+  worlddataverse::theme_wdl() + 
+  theme (legend.position = "bottom",
+         axis.text.x = element_text (angle = 45)) + 
+  labs (title = "Global spending per category: 2023, 2024 and 2030", 
+        subtitle = "Real 2023 USD", 
+        y = "expenditure, Trillions USD Real 2023")
+  
+```
+
+## Regional
+
+South Asia
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating into spending per category per year per region
+  dplyr::group_by (year, category, region) %>%
+  dplyr::summarise (exp = sum (total_category_exp_ppp, na.rm = T),
+                    total_exp_ppp = sum (total_exp_ppp, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # computing percentages of total spending
+  mutate (exp_share = exp / total_exp_ppp, 
+          exp_pct = scales::percent (exp / total_exp_ppp, 
+                                     1)) %>%
+  
+  # rescaling exp trillions
+  mutate (exp = exp / 10^12,
+          total_exp_ppp = total_exp_ppp / 10^12) %>%
+  
+  # filter for 2023
+  filter (year %in% c(2023, 2024, 2030) ) %>%
+  
+  # adding labels
+  mutate (label = paste0 ("$", round (exp, 1), " ", "T", "(", exp_pct, ")")) %>%
+  
+  # filtering for region 
+  filter (region == "s_asia") %>%
+  
+  # building bar plot
+  ggplot (aes (x = factor (year), y = exp_share, fill = category)) + 
+  geom_bar (stat = "identity") + 
+  geom_text (aes (y = exp_share, label = label, col = category), 
+             position = position_stack (vjust = 0.5),
+             size = 3) + 
+  #theme_void() + 
+  worlddataverse::scale_fill_wdl() + 
+  scale_color_manual (values = c("white", "white", "white", "black", "black",
+                                 "black", "black", "black", "black", "black",
+                                 "black", "white")) + 
+  theme (legend.position = "bottom") +
+  labs (title = "S Asia: spending per category (shown as absolute and percentage of total spending) ",
+        subtitle = "2023, 2024 and 2030 | 2017 PPP")
+```
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating into spending per category per year per region
+  dplyr::group_by (year, category, region) %>%
+  dplyr::summarise (exp = sum (total_category_exp_nominal, na.rm = T),
+                    total_exp_nominal = sum (total_exp_nominal, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # computing percentages of total spending
+  mutate (exp_share = exp / total_exp_nominal, 
+          exp_pct = scales::percent (exp / total_exp_nominal, 
+                                     1)) %>%
+  
+  # rescaling exp trillions
+  mutate (exp = exp / 10^12,
+          total_exp_nominal = total_exp_nominal / 10^12) %>%
+  
+  # filter for 2023
+  filter (year %in% c(2023, 2024, 2030) ) %>%
+  
+  # adding labels
+  mutate (label = paste0 ("$", round (exp, 1), " ", "T", "(", exp_pct, ")")) %>%
+  
+  # filtering for region 
+  filter (region == "s_asia") %>%
+  
+  # building bar plot
+  ggplot (aes (x = factor (year), y = exp_share, fill = category)) + 
+  geom_bar (stat = "identity") + 
+  geom_text (aes (y = exp_share, label = label, col = category), 
+             position = position_stack (vjust = 0.5),
+             size = 3) + 
+  #theme_void() + 
+  worlddataverse::scale_fill_wdl() + 
+  scale_color_manual (values = c("white", "white", "white", "black", "black",
+                                 "black", "black", "black", "black", "black",
+                                 "black", "white")) + 
+  theme (legend.position = "bottom") +
+  labs (title = "S Asia: spending per category (shown as absolute and percentage of total spending) ",
+        subtitle = "2023, 2024 and 2030 | Nominal")
+```
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating into spending per category per year per region
+  dplyr::group_by (year, category, region) %>%
+  dplyr::summarise (exp = sum (total_category_exp_real, na.rm = T),
+                    total_exp_real = sum (total_exp_real, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # computing percentages of total spending
+  mutate (exp_share = exp / total_exp_real, 
+          exp_pct = scales::percent (exp / total_exp_real, 
+                                     1)) %>%
+  
+  # rescaling exp trillions
+  mutate (exp = exp / 10^12,
+          total_exp_real = total_exp_real / 10^12) %>%
+  
+  # filter for 2023
+  filter (year %in% c(2023, 2024, 2030) ) %>%
+  
+  # adding labels
+  mutate (label = paste0 ("$", round (exp, 1), " ", "T", "(", exp_pct, ")")) %>%
+  
+  # filtering for region 
+  filter (region == "s_asia") %>%
+  
+  # building bar plot
+  ggplot (aes (x = factor (year), y = exp_share, fill = category)) + 
+  geom_bar (stat = "identity") + 
+  geom_text (aes (y = exp_share, label = label, col = category), 
+             position = position_stack (vjust = 0.5),
+             size = 3) + 
+  #theme_void() + 
+  worlddataverse::scale_fill_wdl() + 
+  scale_color_manual (values = c("white", "white", "white", "black", "black",
+                                 "black", "black", "black", "black", "black",
+                                 "black", "white")) + 
+  theme (legend.position = "bottom") +
+  labs (title = "S Asia: spending per category (shown as absolute and percentage of total spending) ",
+        subtitle = "2023, 2024 and 2030 | Real")
+```
+
+SSA
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating into spending per category per year per region
+  dplyr::group_by (year, category, region) %>%
+  dplyr::summarise (exp = sum (total_category_exp_ppp, na.rm = T),
+                    total_exp_ppp = sum (total_exp_ppp, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # computing percentages of total spending
+  mutate (exp_share = exp / total_exp_ppp, 
+          exp_pct = scales::percent (exp / total_exp_ppp, 
+                                     1)) %>%
+  
+  # rescaling exp trillions
+  mutate (exp = exp / 10^12,
+          total_exp_ppp = total_exp_ppp / 10^12) %>%
+  
+  # filter for 2023
+  filter (year %in% c(2023, 2024, 2030) ) %>%
+  
+  # adding labels
+  mutate (label = paste0 ("$", round (exp, 1), " ", "T", "(", exp_pct, ")")) %>%
+  
+  # filtering for region 
+  filter (region == "ssa") %>%
+  
+  # building bar plot
+  ggplot (aes (x = factor (year), y = exp_share, fill = category)) + 
+  geom_bar (stat = "identity") + 
+  geom_text (aes (y = exp_share, label = label, col = category), 
+             position = position_stack (vjust = 0.5),
+             size = 3) + 
+  #theme_void() + 
+  worlddataverse::scale_fill_wdl() + 
+  scale_color_manual (values = c("white", "white", "white", "black", "black",
+                                 "black", "black", "black", "black", "black",
+                                 "black", "white")) + 
+  theme (legend.position = "bottom") +
+  labs (title = "SSA: spending per category (shown as absolute and percentage of total spending) ",
+        subtitle = "2023, 2024 and 2030 | 2017 PPP")
+```
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating into spending per category per year per region
+  dplyr::group_by (year, category, region) %>%
+  dplyr::summarise (exp = sum (total_category_exp_nominal, na.rm = T),
+                    total_exp_nominal = sum (total_exp_nominal, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # computing percentages of total spending
+  mutate (exp_share = exp / total_exp_nominal, 
+          exp_pct = scales::percent (exp / total_exp_nominal, 
+                                     1)) %>%
+  
+  # rescaling exp trillions
+  mutate (exp = exp / 10^12,
+          total_exp_nominal = total_exp_nominal / 10^12) %>%
+  
+  # filter for 2023
+  filter (year %in% c(2023, 2024, 2030) ) %>%
+  
+  # adding labels
+  mutate (label = paste0 ("$", round (exp, 1), " ", "T", "(", exp_pct, ")")) %>%
+  
+  # filtering for region 
+  filter (region == "ssa") %>%
+  
+  # building bar plot
+  ggplot (aes (x = factor (year), y = exp_share, fill = category)) + 
+  geom_bar (stat = "identity") + 
+  geom_text (aes (y = exp_share, label = label, col = category), 
+             position = position_stack (vjust = 0.5),
+             size = 3) + 
+  #theme_void() + 
+  worlddataverse::scale_fill_wdl() + 
+  scale_color_manual (values = c("white", "white", "white", "black", "black",
+                                 "black", "black", "black", "black", "black",
+                                 "black", "white")) + 
+  theme (legend.position = "bottom") +
+  labs (title = "SSA: spending per category (shown as absolute and percentage of total spending) ",
+        subtitle = "2023, 2024 and 2030 | Nominal")
+```
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating into spending per category per year per region
+  dplyr::group_by (year, category, region) %>%
+  dplyr::summarise (exp = sum (total_category_exp_real, na.rm = T),
+                    total_exp_real = sum (total_exp_real, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # computing percentages of total spending
+  mutate (exp_share = exp / total_exp_real, 
+          exp_pct = scales::percent (exp / total_exp_real, 
+                                     1)) %>%
+  
+  # rescaling exp trillions
+  mutate (exp = exp / 10^12,
+          total_exp_real = total_exp_real / 10^12) %>%
+  
+  # filter for 2023
+  filter (year %in% c(2023, 2024, 2030) ) %>%
+  
+  # adding labels
+  mutate (label = paste0 ("$", round (exp, 1), " ", "T", "(", exp_pct, ")")) %>%
+  
+  # filtering for region 
+  filter (region == "ssa") %>%
+  
+  # building bar plot
+  ggplot (aes (x = factor (year), y = exp_share, fill = category)) + 
+  geom_bar (stat = "identity") + 
+  geom_text (aes (y = exp_share, label = label, col = category), 
+             position = position_stack (vjust = 0.5),
+             size = 3) + 
+  #theme_void() + 
+  worlddataverse::scale_fill_wdl() + 
+  scale_color_manual (values = c("white", "white", "white", "black", "black",
+                                 "black", "black", "black", "black", "black",
+                                 "black", "white")) + 
+  theme (legend.position = "bottom") +
+  labs (title = "SSA: spending per category (shown as absolute and percentage of total spending) ",
+        subtitle = "2023, 2024 and 2030 | Real")
+```
+
+Eur C Asia
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating into spending per category per year per region
+  dplyr::group_by (year, category, region) %>%
+  dplyr::summarise (exp = sum (total_category_exp_ppp, na.rm = T),
+                    total_exp_ppp = sum (total_exp_ppp, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # computing percentages of total spending
+  mutate (exp_share = exp / total_exp_ppp, 
+          exp_pct = scales::percent (exp / total_exp_ppp, 
+                                     1)) %>%
+  
+  # rescaling exp trillions
+  mutate (exp = exp / 10^12,
+          total_exp_ppp = total_exp_ppp / 10^12) %>%
+  
+  # filter for 2023
+  filter (year %in% c(2023, 2024, 2030) ) %>%
+  
+  # adding labels
+  mutate (label = paste0 ("$", round (exp, 1), " ", "T", "(", exp_pct, ")")) %>%
+  
+  # filtering for region 
+  filter (region == "eur_c_asia") %>%
+  
+  # building bar plot
+  ggplot (aes (x = factor (year), y = exp_share, fill = category)) + 
+  geom_bar (stat = "identity") + 
+  geom_text (aes (y = exp_share, label = label, col = category), 
+             position = position_stack (vjust = 0.5),
+             size = 3) + 
+  #theme_void() + 
+  worlddataverse::scale_fill_wdl() + 
+  scale_color_manual (values = c("white", "white", "white", "black", "black",
+                                 "black", "black", "black", "black", "black",
+                                 "black", "white")) + 
+  theme (legend.position = "bottom") +
+  labs (title = "Eur C Asia: spending per category (shown as absolute and percentage of total spending) ",
+        subtitle = "2023, 2024 and 2030 | 2017 PPP")
+```
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating into spending per category per year per region
+  dplyr::group_by (year, category, region) %>%
+  dplyr::summarise (exp = sum (total_category_exp_nominal, na.rm = T),
+                    total_exp_nominal = sum (total_exp_nominal, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # computing percentages of total spending
+  mutate (exp_share = exp / total_exp_nominal, 
+          exp_pct = scales::percent (exp / total_exp_nominal, 
+                                     1)) %>%
+  
+  # rescaling exp trillions
+  mutate (exp = exp / 10^12,
+          total_exp_nominal = total_exp_nominal / 10^12) %>%
+  
+  # filter for 2023
+  filter (year %in% c(2023, 2024, 2030) ) %>%
+  
+  # adding labels
+  mutate (label = paste0 ("$", round (exp, 1), " ", "T", "(", exp_pct, ")")) %>%
+  
+  # filtering for region 
+  filter (region == "eur_c_asia") %>%
+  
+  # building bar plot
+  ggplot (aes (x = factor (year), y = exp_share, fill = category)) + 
+  geom_bar (stat = "identity") + 
+  geom_text (aes (y = exp_share, label = label, col = category), 
+             position = position_stack (vjust = 0.5),
+             size = 3) + 
+  #theme_void() + 
+  worlddataverse::scale_fill_wdl() + 
+  scale_color_manual (values = c("white", "white", "white", "black", "black",
+                                 "black", "black", "black", "black", "black",
+                                 "black", "white")) + 
+  theme (legend.position = "bottom") +
+  labs (title = "Eur C Asia: spending per category (shown as absolute and percentage of total spending) ",
+        subtitle = "2023, 2024 and 2030 | Nominal")
+```
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating into spending per category per year per region
+  dplyr::group_by (year, category, region) %>%
+  dplyr::summarise (exp = sum (total_category_exp_real, na.rm = T),
+                    total_exp_real = sum (total_exp_real, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # computing percentages of total spending
+  mutate (exp_share = exp / total_exp_real, 
+          exp_pct = scales::percent (exp / total_exp_real, 
+                                     1)) %>%
+  
+  # rescaling exp trillions
+  mutate (exp = exp / 10^12,
+          total_exp_real = total_exp_real / 10^12) %>%
+  
+  # filter for 2023
+  filter (year %in% c(2023, 2024, 2030) ) %>%
+  
+  # adding labels
+  mutate (label = paste0 ("$", round (exp, 1), " ", "T", "(", exp_pct, ")")) %>%
+  
+  # filtering for region 
+  filter (region == "eur_c_asia") %>%
+  
+  # building bar plot
+  ggplot (aes (x = factor (year), y = exp_share, fill = category)) + 
+  geom_bar (stat = "identity") + 
+  geom_text (aes (y = exp_share, label = label, col = category), 
+             position = position_stack (vjust = 0.5),
+             size = 3) + 
+  #theme_void() + 
+  worlddataverse::scale_fill_wdl() + 
+  scale_color_manual (values = c("white", "white", "white", "black", "black",
+                                 "black", "black", "black", "black", "black",
+                                 "black", "white")) + 
+  theme (legend.position = "bottom") +
+  labs (title = "Eur C Asia: spending per category (shown as absolute and percentage of total spending) ",
+        subtitle = "2023, 2024 and 2030 | Real")
+```
+
+MENA
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating into spending per category per year per region
+  dplyr::group_by (year, category, region) %>%
+  dplyr::summarise (exp = sum (total_category_exp_ppp, na.rm = T),
+                    total_exp_ppp = sum (total_exp_ppp, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # computing percentages of total spending
+  mutate (exp_share = exp / total_exp_ppp, 
+          exp_pct = scales::percent (exp / total_exp_ppp, 
+                                     1)) %>%
+  
+  # rescaling exp trillions
+  mutate (exp = exp / 10^12,
+          total_exp_ppp = total_exp_ppp / 10^12) %>%
+  
+  # filter for 2023
+  filter (year %in% c(2023, 2024, 2030) ) %>%
+  
+  # adding labels
+  mutate (label = paste0 ("$", round (exp, 1), " ", "T", "(", exp_pct, ")")) %>%
+  
+  # filtering for region 
+  filter (region == "mena") %>%
+  
+  # building bar plot
+  ggplot (aes (x = factor (year), y = exp_share, fill = category)) + 
+  geom_bar (stat = "identity") + 
+  geom_text (aes (y = exp_share, label = label, col = category), 
+             position = position_stack (vjust = 0.5),
+             size = 3) + 
+  #theme_void() + 
+  worlddataverse::scale_fill_wdl() + 
+  scale_color_manual (values = c("white", "white", "white", "black", "black",
+                                 "black", "black", "black", "black", "black",
+                                 "black", "white")) + 
+  theme (legend.position = "bottom") +
+  labs (title = "MENA: spending per category (shown as absolute and percentage of total spending) ",
+        subtitle = "2023, 2024 and 2030 | 2017 PPP")
+```
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating into spending per category per year per region
+  dplyr::group_by (year, category, region) %>%
+  dplyr::summarise (exp = sum (total_category_exp_nominal, na.rm = T),
+                    total_exp_nominal = sum (total_exp_nominal, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # computing percentages of total spending
+  mutate (exp_share = exp / total_exp_nominal, 
+          exp_pct = scales::percent (exp / total_exp_nominal, 
+                                     1)) %>%
+  
+  # rescaling exp trillions
+  mutate (exp = exp / 10^12,
+          total_exp_nominal = total_exp_nominal / 10^12) %>%
+  
+  # filter for 2023
+  filter (year %in% c(2023, 2024, 2030) ) %>%
+  
+  # adding labels
+  mutate (label = paste0 ("$", round (exp, 1), " ", "T", "(", exp_pct, ")")) %>%
+  
+  # filtering for region 
+  filter (region == "mena") %>%
+  
+  # building bar plot
+  ggplot (aes (x = factor (year), y = exp_share, fill = category)) + 
+  geom_bar (stat = "identity") + 
+  geom_text (aes (y = exp_share, label = label, col = category), 
+             position = position_stack (vjust = 0.5),
+             size = 3) + 
+  #theme_void() + 
+  worlddataverse::scale_fill_wdl() + 
+  scale_color_manual (values = c("white", "white", "white", "black", "black",
+                                 "black", "black", "black", "black", "black",
+                                 "black", "white")) + 
+  theme (legend.position = "bottom") +
+  labs (title = "MENA: spending per category (shown as absolute and percentage of total spending) ",
+        subtitle = "2023, 2024 and 2030 | Nominal")
+```
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating into spending per category per year per region
+  dplyr::group_by (year, category, region) %>%
+  dplyr::summarise (exp = sum (total_category_exp_real, na.rm = T),
+                    total_exp_real = sum (total_exp_real, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # computing percentages of total spending
+  mutate (exp_share = exp / total_exp_real, 
+          exp_pct = scales::percent (exp / total_exp_real, 
+                                     1)) %>%
+  
+  # rescaling exp trillions
+  mutate (exp = exp / 10^12,
+          total_exp_real = total_exp_real / 10^12) %>%
+  
+  # filter for 2023
+  filter (year %in% c(2023, 2024, 2030) ) %>%
+  
+  # adding labels
+  mutate (label = paste0 ("$", round (exp, 1), " ", "T", "(", exp_pct, ")")) %>%
+  
+  # filtering for region 
+  filter (region == "mena") %>%
+  
+  # building bar plot
+  ggplot (aes (x = factor (year), y = exp_share, fill = category)) + 
+  geom_bar (stat = "identity") + 
+  geom_text (aes (y = exp_share, label = label, col = category), 
+             position = position_stack (vjust = 0.5),
+             size = 3) + 
+  #theme_void() + 
+  worlddataverse::scale_fill_wdl() + 
+  scale_color_manual (values = c("white", "white", "white", "black", "black",
+                                 "black", "black", "black", "black", "black",
+                                 "black", "white")) + 
+  theme (legend.position = "bottom") +
+  labs (title = "MENA: spending per category (shown as absolute and percentage of total spending) ",
+        subtitle = "2023, 2024 and 2030 | Real")
+```
+
+LATAM CAR
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating into spending per category per year per region
+  dplyr::group_by (year, category, region) %>%
+  dplyr::summarise (exp = sum (total_category_exp_ppp, na.rm = T),
+                    total_exp_ppp = sum (total_exp_ppp, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # computing percentages of total spending
+  mutate (exp_share = exp / total_exp_ppp, 
+          exp_pct = scales::percent (exp / total_exp_ppp, 
+                                     1)) %>%
+  
+  # rescaling exp trillions
+  mutate (exp = exp / 10^12,
+          total_exp_ppp = total_exp_ppp / 10^12) %>%
+  
+  # filter for 2023
+  filter (year %in% c(2023, 2024, 2030) ) %>%
+  
+  # adding labels
+  mutate (label = paste0 ("$", round (exp, 1), " ", "T", "(", exp_pct, ")")) %>%
+  
+  # filtering for region 
+  filter (region == "latam_car") %>%
+  
+  # building bar plot
+  ggplot (aes (x = factor (year), y = exp_share, fill = category)) + 
+  geom_bar (stat = "identity") + 
+  geom_text (aes (y = exp_share, label = label, col = category), 
+             position = position_stack (vjust = 0.5),
+             size = 3) + 
+  #theme_void() + 
+  worlddataverse::scale_fill_wdl() + 
+  scale_color_manual (values = c("white", "white", "white", "black", "black",
+                                 "black", "black", "black", "black", "black",
+                                 "black", "white")) + 
+  theme (legend.position = "bottom") +
+  labs (title = "LATAM CAR: spending per category (shown as absolute and percentage of total spending) ",
+        subtitle = "2023, 2024 and 2030 | 2017 PPP")
+```
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating into spending per category per year per region
+  dplyr::group_by (year, category, region) %>%
+  dplyr::summarise (exp = sum (total_category_exp_nominal, na.rm = T),
+                    total_exp_nominal = sum (total_exp_nominal, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # computing percentages of total spending
+  mutate (exp_share = exp / total_exp_nominal, 
+          exp_pct = scales::percent (exp / total_exp_nominal, 
+                                     1)) %>%
+  
+  # rescaling exp trillions
+  mutate (exp = exp / 10^12,
+          total_exp_nominal = total_exp_nominal / 10^12) %>%
+  
+  # filter for 2023
+  filter (year %in% c(2023, 2024, 2030) ) %>%
+  
+  # adding labels
+  mutate (label = paste0 ("$", round (exp, 1), " ", "T", "(", exp_pct, ")")) %>%
+  
+  # filtering for region 
+  filter (region == "latam_car") %>%
+  
+  # building bar plot
+  ggplot (aes (x = factor (year), y = exp_share, fill = category)) + 
+  geom_bar (stat = "identity") + 
+  geom_text (aes (y = exp_share, label = label, col = category), 
+             position = position_stack (vjust = 0.5),
+             size = 3) + 
+  #theme_void() + 
+  worlddataverse::scale_fill_wdl() + 
+  scale_color_manual (values = c("white", "white", "white", "black", "black",
+                                 "black", "black", "black", "black", "black",
+                                 "black", "white")) + 
+  theme (legend.position = "bottom") +
+  labs (title = "LATAM CAR: spending per category (shown as absolute and percentage of total spending) ",
+        subtitle = "2023, 2024 and 2030 | Nominal")
+```
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating into spending per category per year per region
+  dplyr::group_by (year, category, region) %>%
+  dplyr::summarise (exp = sum (total_category_exp_real, na.rm = T),
+                    total_exp_real = sum (total_exp_real, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # computing percentages of total spending
+  mutate (exp_share = exp / total_exp_real, 
+          exp_pct = scales::percent (exp / total_exp_real, 
+                                     1)) %>%
+  
+  # rescaling exp trillions
+  mutate (exp = exp / 10^12,
+          total_exp_real = total_exp_real / 10^12) %>%
+  
+  # filter for 2023
+  filter (year %in% c(2023, 2024, 2030) ) %>%
+  
+  # adding labels
+  mutate (label = paste0 ("$", round (exp, 1), " ", "T", "(", exp_pct, ")")) %>%
+  
+  # filtering for region 
+  filter (region == "latam_car") %>%
+  
+  # building bar plot
+  ggplot (aes (x = factor (year), y = exp_share, fill = category)) + 
+  geom_bar (stat = "identity") + 
+  geom_text (aes (y = exp_share, label = label, col = category), 
+             position = position_stack (vjust = 0.5),
+             size = 3) + 
+  #theme_void() + 
+  worlddataverse::scale_fill_wdl() + 
+  scale_color_manual (values = c("white", "white", "white", "black", "black",
+                                 "black", "black", "black", "black", "black",
+                                 "black", "white")) + 
+  theme (legend.position = "bottom") +
+  labs (title = "LATAM CAR: spending per category (shown as absolute and percentage of total spending) ",
+        subtitle = "2023, 2024 and 2030 | Real")
+```
+
+E ASIA PAC
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating into spending per category per year per region
+  dplyr::group_by (year, category, region) %>%
+  dplyr::summarise (exp = sum (total_category_exp_ppp, na.rm = T),
+                    total_exp_ppp = sum (total_exp_ppp, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # computing percentages of total spending
+  mutate (exp_share = exp / total_exp_ppp, 
+          exp_pct = scales::percent (exp / total_exp_ppp, 
+                                     1)) %>%
+  
+  # rescaling exp trillions
+  mutate (exp = exp / 10^12,
+          total_exp_ppp = total_exp_ppp / 10^12) %>%
+  
+  # filter for 2023
+  filter (year %in% c(2023, 2024, 2030) ) %>%
+  
+  # adding labels
+  mutate (label = paste0 ("$", round (exp, 1), " ", "T", "(", exp_pct, ")")) %>%
+  
+  # filtering for region 
+  filter (region == "e_asia_pac") %>%
+  
+  # building bar plot
+  ggplot (aes (x = factor (year), y = exp_share, fill = category)) + 
+  geom_bar (stat = "identity") + 
+  geom_text (aes (y = exp_share, label = label, col = category), 
+             position = position_stack (vjust = 0.5),
+             size = 3) + 
+  #theme_void() + 
+  worlddataverse::scale_fill_wdl() + 
+  scale_color_manual (values = c("white", "white", "white", "black", "black",
+                                 "black", "black", "black", "black", "black",
+                                 "black", "white")) + 
+  theme (legend.position = "bottom") +
+  labs (title = "E ASIA PAC: spending per category (shown as absolute and percentage of total spending) ",
+        subtitle = "2023, 2024 and 2030 | 2017 PPP")
+```
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating into spending per category per year per region
+  dplyr::group_by (year, category, region) %>%
+  dplyr::summarise (exp = sum (total_category_exp_nominal, na.rm = T),
+                    total_exp_nominal = sum (total_exp_nominal, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # computing percentages of total spending
+  mutate (exp_share = exp / total_exp_nominal, 
+          exp_pct = scales::percent (exp / total_exp_nominal, 
+                                     1)) %>%
+  
+  # rescaling exp trillions
+  mutate (exp = exp / 10^12,
+          total_exp_nominal = total_exp_nominal / 10^12) %>%
+  
+  # filter for 2023
+  filter (year %in% c(2023, 2024, 2030) ) %>%
+  
+  # adding labels
+  mutate (label = paste0 ("$", round (exp, 1), " ", "T", "(", exp_pct, ")")) %>%
+  
+  # filtering for region 
+  filter (region == "e_asia_pac") %>%
+  
+  # building bar plot
+  ggplot (aes (x = factor (year), y = exp_share, fill = category)) + 
+  geom_bar (stat = "identity") + 
+  geom_text (aes (y = exp_share, label = label, col = category), 
+             position = position_stack (vjust = 0.5),
+             size = 3) + 
+  #theme_void() + 
+  worlddataverse::scale_fill_wdl() + 
+  scale_color_manual (values = c("white", "white", "white", "black", "black",
+                                 "black", "black", "black", "black", "black",
+                                 "black", "white")) + 
+  theme (legend.position = "bottom") +
+  labs (title = "E ASIA PAC: spending per category (shown as absolute and percentage of total spending) ",
+        subtitle = "2023, 2024 and 2030 | Nominal")
+```
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating into spending per category per year per region
+  dplyr::group_by (year, category, region) %>%
+  dplyr::summarise (exp = sum (total_category_exp_real, na.rm = T),
+                    total_exp_real = sum (total_exp_real, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # computing percentages of total spending
+  mutate (exp_share = exp / total_exp_real, 
+          exp_pct = scales::percent (exp / total_exp_real, 
+                                     1)) %>%
+  
+  # rescaling exp trillions
+  mutate (exp = exp / 10^12,
+          total_exp_real = total_exp_real / 10^12) %>%
+  
+  # filter for 2023
+  filter (year %in% c(2023, 2024, 2030) ) %>%
+  
+  # adding labels
+  mutate (label = paste0 ("$", round (exp, 1), " ", "T", "(", exp_pct, ")")) %>%
+  
+  # filtering for region 
+  filter (region == "e_asia_pac") %>%
+  
+  # building bar plot
+  ggplot (aes (x = factor (year), y = exp_share, fill = category)) + 
+  geom_bar (stat = "identity") + 
+  geom_text (aes (y = exp_share, label = label, col = category), 
+             position = position_stack (vjust = 0.5),
+             size = 3) + 
+  #theme_void() + 
+  worlddataverse::scale_fill_wdl() + 
+  scale_color_manual (values = c("white", "white", "white", "black", "black",
+                                 "black", "black", "black", "black", "black",
+                                 "black", "white")) + 
+  theme (legend.position = "bottom") +
+  labs (title = "E ASIA PAC: spending per category (shown as absolute and percentage of total spending) ",
+        subtitle = "2023, 2024 and 2030 | Real")
+```
+
+N AMERICA
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating into spending per category per year per region
+  dplyr::group_by (year, category, region) %>%
+  dplyr::summarise (exp = sum (total_category_exp_ppp, na.rm = T),
+                    total_exp_ppp = sum (total_exp_ppp, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # computing percentages of total spending
+  mutate (exp_share = exp / total_exp_ppp, 
+          exp_pct = scales::percent (exp / total_exp_ppp, 
+                                     1)) %>%
+  
+  # rescaling exp trillions
+  mutate (exp = exp / 10^12,
+          total_exp_ppp = total_exp_ppp / 10^12) %>%
+  
+  # filter for 2023
+  filter (year %in% c(2023, 2024, 2030) ) %>%
+  
+  # adding labels
+  mutate (label = paste0 ("$", round (exp, 1), " ", "T", "(", exp_pct, ")")) %>%
+  
+  # filtering for region 
+  filter (region == "n_am") %>%
+  
+  # building bar plot
+  ggplot (aes (x = factor (year), y = exp_share, fill = category)) + 
+  geom_bar (stat = "identity") + 
+  geom_text (aes (y = exp_share, label = label, col = category), 
+             position = position_stack (vjust = 0.5),
+             size = 3) + 
+  #theme_void() + 
+  worlddataverse::scale_fill_wdl() + 
+  scale_color_manual (values = c("white", "white", "white", "black", "black",
+                                 "black", "black", "black", "black", "black",
+                                 "black", "white")) + 
+  theme (legend.position = "bottom") +
+  labs (title = "N AM: spending per category (shown as absolute and percentage of total spending) ",
+        subtitle = "2023, 2024 and 2030 | 2017 PPP")
+```
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating into spending per category per year per region
+  dplyr::group_by (year, category, region) %>%
+  dplyr::summarise (exp = sum (total_category_exp_nominal, na.rm = T),
+                    total_exp_nominal = sum (total_exp_nominal, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # computing percentages of total spending
+  mutate (exp_share = exp / total_exp_nominal, 
+          exp_pct = scales::percent (exp / total_exp_nominal, 
+                                     1)) %>%
+  
+  # rescaling exp trillions
+  mutate (exp = exp / 10^12,
+          total_exp_nominal = total_exp_nominal / 10^12) %>%
+  
+  # filter for 2023
+  filter (year %in% c(2023, 2024, 2030) ) %>%
+  
+  # adding labels
+  mutate (label = paste0 ("$", round (exp, 1), " ", "T", "(", exp_pct, ")")) %>%
+  
+  # filtering for region 
+  filter (region == "n_am") %>%
+  
+  # building bar plot
+  ggplot (aes (x = factor (year), y = exp_share, fill = category)) + 
+  geom_bar (stat = "identity") + 
+  geom_text (aes (y = exp_share, label = label, col = category), 
+             position = position_stack (vjust = 0.5),
+             size = 3) + 
+  #theme_void() + 
+  worlddataverse::scale_fill_wdl() + 
+  scale_color_manual (values = c("white", "white", "white", "black", "black",
+                                 "black", "black", "black", "black", "black",
+                                 "black", "white")) + 
+  theme (legend.position = "bottom") +
+  labs (title = "N AM: spending per category (shown as absolute and percentage of total spending) ",
+        subtitle = "2023, 2024 and 2030 | Nominal")
+```
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating into spending per category per year per region
+  dplyr::group_by (year, category, region) %>%
+  dplyr::summarise (exp = sum (total_category_exp_real, na.rm = T),
+                    total_exp_real = sum (total_exp_real, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # computing percentages of total spending
+  mutate (exp_share = exp / total_exp_real, 
+          exp_pct = scales::percent (exp / total_exp_real, 
+                                     1)) %>%
+  
+  # rescaling exp trillions
+  mutate (exp = exp / 10^12,
+          total_exp_real = total_exp_real / 10^12) %>%
+  
+  # filter for 2023
+  filter (year %in% c(2023, 2024, 2030) ) %>%
+  
+  # adding labels
+  mutate (label = paste0 ("$", round (exp, 1), " ", "T", "(", exp_pct, ")")) %>%
+  
+  # filtering for region 
+  filter (region == "n_am") %>%
+  
+  # building bar plot
+  ggplot (aes (x = factor (year), y = exp_share, fill = category)) + 
+  geom_bar (stat = "identity") + 
+  geom_text (aes (y = exp_share, label = label, col = category), 
+             position = position_stack (vjust = 0.5),
+             size = 3) + 
+  #theme_void() + 
+  worlddataverse::scale_fill_wdl() + 
+  scale_color_manual (values = c("white", "white", "white", "black", "black",
+                                 "black", "black", "black", "black", "black",
+                                 "black", "white")) + 
+  theme (legend.position = "bottom") +
+  labs (title = "N AM: spending per category (shown as absolute and percentage of total spending) ",
+        subtitle = "2023, 2024 and 2030 | Real")
+```
+
+## Regional CAGRs
+
+S Asia
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating into spending per category per year per region
+  dplyr::group_by (year, category, region) %>%
+  dplyr::summarise (exp = sum (total_category_exp_ppp, na.rm = T) / 10^12,
+                    total_exp_ppp = sum (total_exp_ppp, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # filtering for relevant years
+  filter (year %in% 2023:2030) %>%
+  
+  # computing CAGRs
+  dplyr::group_by (region, category) %>%
+  mutate (CAGR = CAGR_fun (exp) * 100) %>% ungroup () %>%
+  
+  # adding label
+  mutate (label = paste0 (round (CAGR, 1), " ", "%"),
+          label = ifelse (year == 2023, NA, label)) %>%
+  
+  # filtering for relevant years
+  filter (year %in% c(2023, 2024, 2030)) %>%
+  
+  # filter for region 
+  filter (region == "s_asia") %>%
+  
+  # making plot
+  ggplot (aes (x = category, y = exp, fill = factor (year))) + 
+  geom_bar (stat = "identity", position = "dodge") +
+  geom_text (aes (label = label), position = position_dodge (width = 1), angle = 90, hjust = -0.1) + 
+  ylim (0,5.5) + 
+  worlddataverse::theme_wdl() + 
+  theme (axis.text.x = element_text (angle = 45)) +
+  labs (title = "S Asia: CAGRs per category",
+        subtitle = "2017 PPP", 
+        y = "expenditure, Trillions USD")
+  
+```
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating into spending per category per year per region
+  dplyr::group_by (year, category, region) %>%
+  dplyr::summarise (exp = sum (total_category_exp_nominal, na.rm = T) / 10^12,
+                    total_exp_nominal = sum (total_exp_nominal, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # filtering for relevant years
+  filter (year %in% 2023:2030) %>%
+  
+  # computing CAGRs
+  dplyr::group_by (region, category) %>%
+  mutate (CAGR = CAGR_fun (exp) * 100) %>% ungroup () %>%
+  
+  # adding label
+  mutate (label = paste0 (round (CAGR, 1), " ", "%"),
+          label = ifelse (year == 2023, NA, label)) %>%
+  
+  # filtering for relevant years
+  filter (year %in% c(2023, 2024, 2030)) %>%
+  
+  # filter for region 
+  filter (region == "s_asia") %>%
+  
+  # making plot
+  ggplot (aes (x = category, y = exp, fill = factor (year))) + 
+  geom_bar (stat = "identity", position = "dodge") +
+  geom_text (aes (label = label), position = position_dodge (width = 1), angle = 90, hjust = -0.1) + 
+  ylim (0,3) + 
+  worlddataverse::theme_wdl() + 
+  theme (axis.text.x = element_text (angle = 45)) +
+  labs (title = "S Asia: CAGRs per category",
+        subtitle = "Nominal USD", 
+        y = "expenditure, Trillions USD")
+  
+```
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating into spending per category per year per region
+  dplyr::group_by (year, category, region) %>%
+  dplyr::summarise (exp = sum (total_category_exp_real, na.rm = T) / 10^12,
+                    total_exp_real = sum (total_exp_real, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # filtering for relevant years
+  filter (year %in% 2023:2030) %>%
+  
+  # computing CAGRs
+  dplyr::group_by (region, category) %>%
+  mutate (CAGR = CAGR_fun (exp) * 100) %>% ungroup () %>%
+  
+  # adding label
+  mutate (label = paste0 (round (CAGR, 1), " ", "%"),
+          label = ifelse (year == 2023, NA, label)) %>%
+  
+  # filtering for relevant years
+  filter (year %in% c(2023, 2024, 2030)) %>%
+  
+  # filter for region 
+  filter (region == "s_asia") %>%
+  
+  # making plot
+  ggplot (aes (x = category, y = exp, fill = factor (year))) + 
+  geom_bar (stat = "identity", position = "dodge") +
+  geom_text (aes (label = label), position = position_dodge (width = 1), angle = 90, hjust = -0.1) + 
+  ylim (0,3) + 
+  worlddataverse::theme_wdl() + 
+  theme (axis.text.x = element_text (angle = 45)) +
+  labs (title = "S Asia: CAGRs per category",
+        subtitle = "Real 2023 USD", 
+        y = "expenditure, Trillions USD")
+  
+```
+
+SSA
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating into spending per category per year per region
+  dplyr::group_by (year, category, region) %>%
+  dplyr::summarise (exp = sum (total_category_exp_ppp, na.rm = T) / 10^12,
+                    total_exp_ppp = sum (total_exp_ppp, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # filtering for relevant years
+  filter (year %in% 2023:2030) %>%
+  
+  # computing CAGRs
+  dplyr::group_by (region, category) %>%
+  mutate (CAGR = CAGR_fun (exp) * 100) %>% ungroup () %>%
+  
+  # adding label
+  mutate (label = paste0 (round (CAGR, 1), " ", "%"),
+          label = ifelse (year == 2023, NA, label)) %>%
+  
+  # filtering for relevant years
+  filter (year %in% c(2023, 2024, 2030)) %>%
+  
+  # filter for region 
+  filter (region == "ssa") %>%
+  
+  # making plot
+  ggplot (aes (x = category, y = exp, fill = factor (year))) + 
+  geom_bar (stat = "identity", position = "dodge") +
+  geom_text (aes (label = label), position = position_dodge (width = 1), angle = 90, hjust = -0.1) + 
+  ylim (0,3) + 
+  worlddataverse::theme_wdl() + 
+  theme (axis.text.x = element_text (angle = 45)) +
+  labs (title = "SSA: CAGRs per category",
+        subtitle = "2017 PPP", 
+        y = "expenditure, Trillions USD")
+  
+```
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating into spending per category per year per region
+  dplyr::group_by (year, category, region) %>%
+  dplyr::summarise (exp = sum (total_category_exp_nominal, na.rm = T) / 10^12,
+                    total_exp_nominal = sum (total_exp_nominal, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # filtering for relevant years
+  filter (year %in% 2023:2030) %>%
+  
+  # computing CAGRs
+  dplyr::group_by (region, category) %>%
+  mutate (CAGR = CAGR_fun (exp) * 100) %>% ungroup () %>%
+  
+  # adding label
+  mutate (label = paste0 (round (CAGR, 1), " ", "%"),
+          label = ifelse (year == 2023, NA, label)) %>%
+  
+  # filtering for relevant years
+  filter (year %in% c(2023, 2024, 2030)) %>%
+  
+  # filter for region 
+  filter (region == "ssa") %>%
+  
+  # making plot
+  ggplot (aes (x = category, y = exp, fill = factor (year))) + 
+  geom_bar (stat = "identity", position = "dodge") +
+  geom_text (aes (label = label), position = position_dodge (width = 1), angle = 90, hjust = -0.1) + 
+  ylim (0,2) + 
+  worlddataverse::theme_wdl() + 
+  theme (axis.text.x = element_text (angle = 45)) +
+  labs (title = "SSA: CAGRs per category",
+        subtitle = "Nominal USD", 
+        y = "expenditure, Trillions USD")
+  
+```
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating into spending per category per year per region
+  dplyr::group_by (year, category, region) %>%
+  dplyr::summarise (exp = sum (total_category_exp_real, na.rm = T) / 10^12,
+                    total_exp_real = sum (total_exp_real, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # filtering for relevant years
+  filter (year %in% 2023:2030) %>%
+  
+  # computing CAGRs
+  dplyr::group_by (region, category) %>%
+  mutate (CAGR = CAGR_fun (exp) * 100) %>% ungroup () %>%
+  
+  # adding label
+  mutate (label = paste0 (round (CAGR, 1), " ", "%"),
+          label = ifelse (year == 2023, NA, label)) %>%
+  
+  # filtering for relevant years
+  filter (year %in% c(2023, 2024, 2030)) %>%
+  
+  # filter for region 
+  filter (region == "ssa") %>%
+  
+  # making plot
+  ggplot (aes (x = category, y = exp, fill = factor (year))) + 
+  geom_bar (stat = "identity", position = "dodge") +
+  geom_text (aes (label = label), position = position_dodge (width = 1), angle = 90, hjust = -0.1) + 
+  ylim (0,1.5) + 
+  worlddataverse::theme_wdl() + 
+  theme (axis.text.x = element_text (angle = 45)) +
+  labs (title = "SSA: CAGRs per category",
+        subtitle = "Real 2023 USD", 
+        y = "expenditure, Trillions USD")
+  
+```
+
+EUR C ASIA
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating into spending per category per year per region
+  dplyr::group_by (year, category, region) %>%
+  dplyr::summarise (exp = sum (total_category_exp_ppp, na.rm = T) / 10^12,
+                    total_exp_ppp = sum (total_exp_ppp, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # filtering for relevant years
+  filter (year %in% 2023:2030) %>%
+  
+  # computing CAGRs
+  dplyr::group_by (region, category) %>%
+  mutate (CAGR = CAGR_fun (exp) * 100) %>% ungroup () %>%
+  
+  # adding label
+  mutate (label = paste0 (round (CAGR, 1), " ", "%"),
+          label = ifelse (year == 2023, NA, label)) %>%
+  
+  # filtering for relevant years
+  filter (year %in% c(2023, 2024, 2030)) %>%
+  
+  # filter for region 
+  filter (region == "eur_c_asia") %>%
+  
+  # making plot
+  ggplot (aes (x = category, y = exp, fill = factor (year))) + 
+  geom_bar (stat = "identity", position = "dodge") +
+  geom_text (aes (label = label), position = position_dodge (width = 1), angle = 90, hjust = -0.1) + 
+  ylim (0,3) + 
+  worlddataverse::theme_wdl() + 
+  theme (axis.text.x = element_text (angle = 45)) +
+  labs (title = "EUR C ASIA: CAGRs per category",
+        subtitle = "2017 PPP", 
+        y = "expenditure, Trillions USD")
+  
+```
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating into spending per category per year per region
+  dplyr::group_by (year, category, region) %>%
+  dplyr::summarise (exp = sum (total_category_exp_nominal, na.rm = T) / 10^12,
+                    total_exp_nominal = sum (total_exp_nominal, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # filtering for relevant years
+  filter (year %in% 2023:2030) %>%
+  
+  # computing CAGRs
+  dplyr::group_by (region, category) %>%
+  mutate (CAGR = CAGR_fun (exp) * 100) %>% ungroup () %>%
+  
+  # adding label
+  mutate (label = paste0 (round (CAGR, 1), " ", "%"),
+          label = ifelse (year == 2023, NA, label)) %>%
+  
+  # filtering for relevant years
+  filter (year %in% c(2023, 2024, 2030)) %>%
+  
+  # filter for region 
+  filter (region == "eur_c_asia") %>%
+  
+  # making plot
+  ggplot (aes (x = category, y = exp, fill = factor (year))) + 
+  geom_bar (stat = "identity", position = "dodge") +
+  geom_text (aes (label = label), position = position_dodge (width = 1), angle = 90, hjust = -0.1) + 
+  ylim (0,2) + 
+  worlddataverse::theme_wdl() + 
+  theme (axis.text.x = element_text (angle = 45)) +
+  labs (title = "EUR C ASIA: CAGRs per category",
+        subtitle = "Nominal USD", 
+        y = "expenditure, Trillions USD")
+  
+```
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating into spending per category per year per region
+  dplyr::group_by (year, category, region) %>%
+  dplyr::summarise (exp = sum (total_category_exp_real, na.rm = T) / 10^12,
+                    total_exp_real = sum (total_exp_real, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # filtering for relevant years
+  filter (year %in% 2023:2030) %>%
+  
+  # computing CAGRs
+  dplyr::group_by (region, category) %>%
+  mutate (CAGR = CAGR_fun (exp) * 100) %>% ungroup () %>%
+  
+  # adding label
+  mutate (label = paste0 (round (CAGR, 1), " ", "%"),
+          label = ifelse (year == 2023, NA, label)) %>%
+  
+  # filtering for relevant years
+  filter (year %in% c(2023, 2024, 2030)) %>%
+  
+  # filter for region 
+  filter (region == "eur_c_asia") %>%
+  
+  # making plot
+  ggplot (aes (x = category, y = exp, fill = factor (year))) + 
+  geom_bar (stat = "identity", position = "dodge") +
+  geom_text (aes (label = label), position = position_dodge (width = 1), angle = 90, hjust = -0.1) + 
+  ylim (0,1.5) + 
+  worlddataverse::theme_wdl() + 
+  theme (axis.text.x = element_text (angle = 45)) +
+  labs (title = "EUR C ASIA: CAGRs per category",
+        subtitle = "Real 2023 USD", 
+        y = "expenditure, Trillions USD")
+  
+```
+
+MENA
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating into spending per category per year per region
+  dplyr::group_by (year, category, region) %>%
+  dplyr::summarise (exp = sum (total_category_exp_ppp, na.rm = T) / 10^12,
+                    total_exp_ppp = sum (total_exp_ppp, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # filtering for relevant years
+  filter (year %in% 2023:2030) %>%
+  
+  # computing CAGRs
+  dplyr::group_by (region, category) %>%
+  mutate (CAGR = CAGR_fun (exp) * 100) %>% ungroup () %>%
+  
+  # adding label
+  mutate (label = paste0 (round (CAGR, 1), " ", "%"),
+          label = ifelse (year == 2023, NA, label)) %>%
+  
+  # filtering for relevant years
+  filter (year %in% c(2023, 2024, 2030)) %>%
+  
+  # filter for region 
+  filter (region == "mena") %>%
+  
+  # making plot
+  ggplot (aes (x = category, y = exp, fill = factor (year))) + 
+  geom_bar (stat = "identity", position = "dodge") +
+  geom_text (aes (label = label), position = position_dodge (width = 1), angle = 90, hjust = -0.1) + 
+  ylim (0,3) + 
+  worlddataverse::theme_wdl() + 
+  theme (axis.text.x = element_text (angle = 45)) +
+  labs (title = "MENA: CAGRs per category",
+        subtitle = "2017 PPP", 
+        y = "expenditure, Trillions USD")
+  
+```
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating into spending per category per year per region
+  dplyr::group_by (year, category, region) %>%
+  dplyr::summarise (exp = sum (total_category_exp_nominal, na.rm = T) / 10^12,
+                    total_exp_nominal = sum (total_exp_nominal, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # filtering for relevant years
+  filter (year %in% 2023:2030) %>%
+  
+  # computing CAGRs
+  dplyr::group_by (region, category) %>%
+  mutate (CAGR = CAGR_fun (exp) * 100) %>% ungroup () %>%
+  
+  # adding label
+  mutate (label = paste0 (round (CAGR, 1), " ", "%"),
+          label = ifelse (year == 2023, NA, label)) %>%
+  
+  # filtering for relevant years
+  filter (year %in% c(2023, 2024, 2030)) %>%
+  
+  # filter for region 
+  filter (region == "mena") %>%
+  
+  # making plot
+  ggplot (aes (x = category, y = exp, fill = factor (year))) + 
+  geom_bar (stat = "identity", position = "dodge") +
+  geom_text (aes (label = label), position = position_dodge (width = 1), angle = 90, hjust = -0.1) + 
+  ylim (0,2) + 
+  worlddataverse::theme_wdl() + 
+  theme (axis.text.x = element_text (angle = 45)) +
+  labs (title = "MENA: CAGRs per category",
+        subtitle = "Nominal USD", 
+        y = "expenditure, Trillions USD")
+  
+```
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating into spending per category per year per region
+  dplyr::group_by (year, category, region) %>%
+  dplyr::summarise (exp = sum (total_category_exp_real, na.rm = T) / 10^12,
+                    total_exp_real = sum (total_exp_real, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # filtering for relevant years
+  filter (year %in% 2023:2030) %>%
+  
+  # computing CAGRs
+  dplyr::group_by (region, category) %>%
+  mutate (CAGR = CAGR_fun (exp) * 100) %>% ungroup () %>%
+  
+  # adding label
+  mutate (label = paste0 (round (CAGR, 1), " ", "%"),
+          label = ifelse (year == 2023, NA, label)) %>%
+  
+  # filtering for relevant years
+  filter (year %in% c(2023, 2024, 2030)) %>%
+  
+  # filter for region 
+  filter (region == "mena") %>%
+  
+  # making plot
+  ggplot (aes (x = category, y = exp, fill = factor (year))) + 
+  geom_bar (stat = "identity", position = "dodge") +
+  geom_text (aes (label = label), position = position_dodge (width = 1), angle = 90, hjust = -0.1) + 
+  ylim (0,1.5) + 
+  worlddataverse::theme_wdl() + 
+  theme (axis.text.x = element_text (angle = 45)) +
+  labs (title = "MENA: CAGRs per category",
+        subtitle = "Real 2023 USD", 
+        y = "expenditure, Trillions USD")
+  
+```
+
+LATAM CAR
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating into spending per category per year per region
+  dplyr::group_by (year, category, region) %>%
+  dplyr::summarise (exp = sum (total_category_exp_ppp, na.rm = T) / 10^12,
+                    total_exp_ppp = sum (total_exp_ppp, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # filtering for relevant years
+  filter (year %in% 2023:2030) %>%
+  
+  # computing CAGRs
+  dplyr::group_by (region, category) %>%
+  mutate (CAGR = CAGR_fun (exp) * 100) %>% ungroup () %>%
+  
+  # adding label
+  mutate (label = paste0 (round (CAGR, 1), " ", "%"),
+          label = ifelse (year == 2023, NA, label)) %>%
+  
+  # filtering for relevant years
+  filter (year %in% c(2023, 2024, 2030)) %>%
+  
+  # filter for region 
+  filter (region == "latam_car") %>%
+  
+  # making plot
+  ggplot (aes (x = category, y = exp, fill = factor (year))) + 
+  geom_bar (stat = "identity", position = "dodge") +
+  geom_text (aes (label = label), position = position_dodge (width = 1), angle = 90, hjust = -0.1) + 
+  ylim (0,3) + 
+  worlddataverse::theme_wdl() + 
+  theme (axis.text.x = element_text (angle = 45)) +
+  labs (title = "LATAM CAR: CAGRs per category",
+        subtitle = "2017 PPP", 
+        y = "expenditure, Trillions USD")
+  
+```
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating into spending per category per year per region
+  dplyr::group_by (year, category, region) %>%
+  dplyr::summarise (exp = sum (total_category_exp_nominal, na.rm = T) / 10^12,
+                    total_exp_nominal = sum (total_exp_nominal, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # filtering for relevant years
+  filter (year %in% 2023:2030) %>%
+  
+  # computing CAGRs
+  dplyr::group_by (region, category) %>%
+  mutate (CAGR = CAGR_fun (exp) * 100) %>% ungroup () %>%
+  
+  # adding label
+  mutate (label = paste0 (round (CAGR, 1), " ", "%"),
+          label = ifelse (year == 2023, NA, label)) %>%
+  
+  # filtering for relevant years
+  filter (year %in% c(2023, 2024, 2030)) %>%
+  
+  # filter for region 
+  filter (region == "latam_car") %>%
+  
+  # making plot
+  ggplot (aes (x = category, y = exp, fill = factor (year))) + 
+  geom_bar (stat = "identity", position = "dodge") +
+  geom_text (aes (label = label), position = position_dodge (width = 1), angle = 90, hjust = -0.1) + 
+  ylim (0,2) + 
+  worlddataverse::theme_wdl() + 
+  theme (axis.text.x = element_text (angle = 45)) +
+  labs (title = "LATAM CAR: CAGRs per category",
+        subtitle = "Nominal USD", 
+        y = "expenditure, Trillions USD")
+  
+```
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating into spending per category per year per region
+  dplyr::group_by (year, category, region) %>%
+  dplyr::summarise (exp = sum (total_category_exp_real, na.rm = T) / 10^12,
+                    total_exp_real = sum (total_exp_real, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # filtering for relevant years
+  filter (year %in% 2023:2030) %>%
+  
+  # computing CAGRs
+  dplyr::group_by (region, category) %>%
+  mutate (CAGR = CAGR_fun (exp) * 100) %>% ungroup () %>%
+  
+  # adding label
+  mutate (label = paste0 (round (CAGR, 1), " ", "%"),
+          label = ifelse (year == 2023, NA, label)) %>%
+  
+  # filtering for relevant years
+  filter (year %in% c(2023, 2024, 2030)) %>%
+  
+  # filter for region 
+  filter (region == "laram_car") %>%
+  
+  # making plot
+  ggplot (aes (x = category, y = exp, fill = factor (year))) + 
+  geom_bar (stat = "identity", position = "dodge") +
+  geom_text (aes (label = label), position = position_dodge (width = 1), angle = 90, hjust = -0.1) + 
+  ylim (0,1.5) + 
+  worlddataverse::theme_wdl() + 
+  theme (axis.text.x = element_text (angle = 45)) +
+  labs (title = "LATAM CAR: CAGRs per category",
+        subtitle = "Real 2023 USD", 
+        y = "expenditure, Trillions USD")
+  
+```
+
+E ASIA PAC
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating into spending per category per year per region
+  dplyr::group_by (year, category, region) %>%
+  dplyr::summarise (exp = sum (total_category_exp_ppp, na.rm = T) / 10^12,
+                    total_exp_ppp = sum (total_exp_ppp, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # filtering for relevant years
+  filter (year %in% 2023:2030) %>%
+  
+  # computing CAGRs
+  dplyr::group_by (region, category) %>%
+  mutate (CAGR = CAGR_fun (exp) * 100) %>% ungroup () %>%
+  
+  # adding label
+  mutate (label = paste0 (round (CAGR, 1), " ", "%"),
+          label = ifelse (year == 2023, NA, label)) %>%
+  
+  # filtering for relevant years
+  filter (year %in% c(2023, 2024, 2030)) %>%
+  
+  # filter for region 
+  filter (region == "e_asia_pac") %>%
+  
+  # making plot
+  ggplot (aes (x = category, y = exp, fill = factor (year))) + 
+  geom_bar (stat = "identity", position = "dodge") +
+  geom_text (aes (label = label), position = position_dodge (width = 1), angle = 90, hjust = -0.1) + 
+  ylim (0,3) + 
+  worlddataverse::theme_wdl() + 
+  theme (axis.text.x = element_text (angle = 45)) +
+  labs (title = "E ASIA PAC: CAGRs per category",
+        subtitle = "2017 PPP", 
+        y = "expenditure, Trillions USD")
+  
+```
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating into spending per category per year per region
+  dplyr::group_by (year, category, region) %>%
+  dplyr::summarise (exp = sum (total_category_exp_nominal, na.rm = T) / 10^12,
+                    total_exp_nominal = sum (total_exp_nominal, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # filtering for relevant years
+  filter (year %in% 2023:2030) %>%
+  
+  # computing CAGRs
+  dplyr::group_by (region, category) %>%
+  mutate (CAGR = CAGR_fun (exp) * 100) %>% ungroup () %>%
+  
+  # adding label
+  mutate (label = paste0 (round (CAGR, 1), " ", "%"),
+          label = ifelse (year == 2023, NA, label)) %>%
+  
+  # filtering for relevant years
+  filter (year %in% c(2023, 2024, 2030)) %>%
+  
+  # filter for region 
+  filter (region == "e_asia_pac") %>%
+  
+  # making plot
+  ggplot (aes (x = category, y = exp, fill = factor (year))) + 
+  geom_bar (stat = "identity", position = "dodge") +
+  geom_text (aes (label = label), position = position_dodge (width = 1), angle = 90, hjust = -0.1) + 
+  ylim (0,2) + 
+  worlddataverse::theme_wdl() + 
+  theme (axis.text.x = element_text (angle = 45)) +
+  labs (title = "E ASIA PAC: CAGRs per category",
+        subtitle = "Nominal USD", 
+        y = "expenditure, Trillions USD")
+  
+```
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating into spending per category per year per region
+  dplyr::group_by (year, category, region) %>%
+  dplyr::summarise (exp = sum (total_category_exp_real, na.rm = T) / 10^12,
+                    total_exp_real = sum (total_exp_real, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # filtering for relevant years
+  filter (year %in% 2023:2030) %>%
+  
+  # computing CAGRs
+  dplyr::group_by (region, category) %>%
+  mutate (CAGR = CAGR_fun (exp) * 100) %>% ungroup () %>%
+  
+  # adding label
+  mutate (label = paste0 (round (CAGR, 1), " ", "%"),
+          label = ifelse (year == 2023, NA, label)) %>%
+  
+  # filtering for relevant years
+  filter (year %in% c(2023, 2024, 2030)) %>%
+  
+  # filter for region 
+  filter (region == "e_asia_pac") %>%
+  
+  # making plot
+  ggplot (aes (x = category, y = exp, fill = factor (year))) + 
+  geom_bar (stat = "identity", position = "dodge") +
+  geom_text (aes (label = label), position = position_dodge (width = 1), angle = 90, hjust = -0.1) + 
+  ylim (0,1.5) + 
+  worlddataverse::theme_wdl() + 
+  theme (axis.text.x = element_text (angle = 45)) +
+  labs (title = "E ASIA PAC: CAGRs per category",
+        subtitle = "Real 2023 USD", 
+        y = "expenditure, Trillions USD")
+  
+```
+
+N AM
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating into spending per category per year per region
+  dplyr::group_by (year, category, region) %>%
+  dplyr::summarise (exp = sum (total_category_exp_ppp, na.rm = T) / 10^12,
+                    total_exp_ppp = sum (total_exp_ppp, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # filtering for relevant years
+  filter (year %in% 2023:2030) %>%
+  
+  # computing CAGRs
+  dplyr::group_by (region, category) %>%
+  mutate (CAGR = CAGR_fun (exp) * 100) %>% ungroup () %>%
+  
+  # adding label
+  mutate (label = paste0 (round (CAGR, 1), " ", "%"),
+          label = ifelse (year == 2023, NA, label)) %>%
+  
+  # filtering for relevant years
+  filter (year %in% c(2023, 2024, 2030)) %>%
+  
+  # filter for region 
+  filter (region == "n_am") %>%
+  
+  # making plot
+  ggplot (aes (x = category, y = exp, fill = factor (year))) + 
+  geom_bar (stat = "identity", position = "dodge") +
+  geom_text (aes (label = label), position = position_dodge (width = 1), angle = 90, hjust = -0.1) + 
+  ylim (0,3) + 
+  worlddataverse::theme_wdl() + 
+  theme (axis.text.x = element_text (angle = 45)) +
+  labs (title = "N AM: CAGRs per category",
+        subtitle = "2017 PPP", 
+        y = "expenditure, Trillions USD")
+  
+```
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating into spending per category per year per region
+  dplyr::group_by (year, category, region) %>%
+  dplyr::summarise (exp = sum (total_category_exp_nominal, na.rm = T) / 10^12,
+                    total_exp_nominal = sum (total_exp_nominal, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # filtering for relevant years
+  filter (year %in% 2023:2030) %>%
+  
+  # computing CAGRs
+  dplyr::group_by (region, category) %>%
+  mutate (CAGR = CAGR_fun (exp) * 100) %>% ungroup () %>%
+  
+  # adding label
+  mutate (label = paste0 (round (CAGR, 1), " ", "%"),
+          label = ifelse (year == 2023, NA, label)) %>%
+  
+  # filtering for relevant years
+  filter (year %in% c(2023, 2024, 2030)) %>%
+  
+  # filter for region 
+  filter (region == "n_am") %>%
+  
+  # making plot
+  ggplot (aes (x = category, y = exp, fill = factor (year))) + 
+  geom_bar (stat = "identity", position = "dodge") +
+  geom_text (aes (label = label), position = position_dodge (width = 1), angle = 90, hjust = -0.1) + 
+  ylim (0,2) + 
+  worlddataverse::theme_wdl() + 
+  theme (axis.text.x = element_text (angle = 45)) +
+  labs (title = "N AM: CAGRs per category",
+        subtitle = "Nominal USD", 
+        y = "expenditure, Trillions USD")
+  
+```
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating into spending per category per year per region
+  dplyr::group_by (year, category, region) %>%
+  dplyr::summarise (exp = sum (total_category_exp_real, na.rm = T) / 10^12,
+                    total_exp_real = sum (total_exp_real, na.rm = T),
+                    total_hc = sum (total_hc, na.rm = T)) %>%
+  
+  # filtering for relevant years
+  filter (year %in% 2023:2030) %>%
+  
+  # computing CAGRs
+  dplyr::group_by (region, category) %>%
+  mutate (CAGR = CAGR_fun (exp) * 100) %>% ungroup () %>%
+  
+  # adding label
+  mutate (label = paste0 (round (CAGR, 1), " ", "%"),
+          label = ifelse (year == 2023, NA, label)) %>%
+  
+  # filtering for relevant years
+  filter (year %in% c(2023, 2024, 2030)) %>%
+  
+  # filter for region 
+  filter (region == "n_am") %>%
+  
+  # making plot
+  ggplot (aes (x = category, y = exp, fill = factor (year))) + 
+  geom_bar (stat = "identity", position = "dodge") +
+  geom_text (aes (label = label), position = position_dodge (width = 1), angle = 90, hjust = -0.1) + 
+  ylim (0,1.5) + 
+  worlddataverse::theme_wdl() + 
+  theme (axis.text.x = element_text (angle = 45)) +
+  labs (title = "N AM: CAGRs per category",
+        subtitle = "Real 2023 USD", 
+        y = "expenditure, Trillions USD")
+  
+```
+
+## Country-level
+
+
+The following is a treemap of the top 22 country-categories by growth from 2023 - 2024 (absolute growth in the first chart, CAGRs in the second chart). 
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating 
+  dplyr::group_by (ccode, year, category) %>%
+  dplyr::summarise (exp = sum (total_category_exp_ppp, na.rm = T) / 10^9) %>%
+  
+  # filtering for relevant years
+  filter (year %in% c(2023, 2024)) %>% ungroup () %>%
+  
+  # calculating CAGRs
+  dplyr::group_by (ccode, category) %>%
+  mutate (CAGR = CAGR_fun(exp) * 100) %>% ungroup () %>%
+  
+  # calculating absolute change 
+  pivot_wider (names_from = "year", values_from = 4:5) %>%
+  
+  # computing the delta 
+  mutate (delta_23_24 = exp_2024 - exp_2023) %>%
+  
+  # reordering in descending order by variable of interest
+  arrange (desc (delta_23_24)) %>%
+  
+  # obtaining the top 22 by growth to 2030
+  slice_head (n = 22) %>%
+  
+  # creating plot
+  ggplot (aes (area = delta_23_24, 
+               fill = ccode, 
+               label = paste (category, round (delta_23_24, 0), "B", sep = "\n"))) + 
+  
+  # creating treemap
+  treemapify::geom_treemap (layout = "squarified") +
+  
+  # adding tile text
+  geom_treemap_text (place = "centre",size = 10) +
+  
+  # creating empty title
+  labs (title = "Treemap: top 22 country-categories by absolute growth", 
+        subtitle = "2017 PPP") +
+  
+  # adding WDL theme, colour and font
+  theme_wdl() +
+  scale_fill_wdl2() +
+  worlddataverse::font_wdl()
+  
+```
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating 
+  dplyr::group_by (ccode, year, category) %>%
+  dplyr::summarise (exp = sum (total_category_exp_ppp, na.rm = T) / 10^9) %>%
+  
+  # filtering for relevant years
+  filter (year %in% c(2023, 2024)) %>% ungroup () %>%
+  
+  # calculating CAGRs
+  dplyr::group_by (ccode, category) %>%
+  mutate (CAGR = CAGR_fun(exp) * 100) %>% ungroup () %>%
+  
+  # calculating absolute change 
+  pivot_wider (names_from = "year", values_from = 4:5) %>%
+  
+  # computing the delta 
+  mutate (delta_23_24 = exp_2024 - exp_2023) %>%
+  
+  # reordering in descending order by variable of interest
+  arrange (desc (CAGR_2024)) %>%
+  
+  # obtaining the top 22 by growth to 2030
+  slice_head (n = 22) %>%
+  
+  # creating plot
+  ggplot (aes (area = CAGR_2024, 
+               fill = ccode, 
+               label = paste (category, round (CAGR_2024, 1), "%", sep = "\n"))) + 
+  
+  # creating treemap
+  treemapify::geom_treemap (layout = "squarified") +
+  
+  # adding tile text
+  geom_treemap_text (place = "centre",size = 10) +
+  
+  # creating empty title
+  labs (title = "Treemap: top 22 country-categories by CAGRs", 
+        subtitle = "2017 PPP") +
+  
+  # adding WDL theme, colour and font
+  theme_wdl() +
+  #scale_fill_wdl2() +
+  worlddataverse::font_wdl()
+  
+```
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating 
+  dplyr::group_by (ccode, year, category) %>%
+  dplyr::summarise (exp = sum (total_category_exp_nominal, na.rm = T) / 10^9) %>%
+  
+  # filtering for relevant years
+  filter (year %in% c(2023, 2024)) %>% ungroup () %>%
+  
+  # calculating CAGRs
+  dplyr::group_by (ccode, category) %>%
+  mutate (CAGR = CAGR_fun(exp) * 100) %>% ungroup () %>%
+  
+  # calculating absolute change 
+  pivot_wider (names_from = "year", values_from = 4:5) %>%
+  
+  # computing the delta 
+  mutate (delta_23_24 = exp_2024 - exp_2023) %>%
+  
+  # reordering in descending order by variable of interest
+  arrange (desc (delta_23_24)) %>%
+  
+  # obtaining the top 22 by growth to 2030
+  slice_head (n = 22) %>%
+  
+  # creating plot
+  ggplot (aes (area = delta_23_24, 
+               fill = ccode, 
+               label = paste (category, round (delta_23_24, 0), "B", sep = "\n"))) + 
+  
+  # creating treemap
+  treemapify::geom_treemap (layout = "squarified") +
+  
+  # adding tile text
+  geom_treemap_text (place = "centre",size = 10) +
+  
+  # creating empty title
+  labs (title = "Treemap: top 22 country-categories by absolute growth", 
+        subtitle = "Nominal USD") +
+  
+  # adding WDL theme, colour and font
+  theme_wdl() +
+  scale_fill_wdl2() +
+  worlddataverse::font_wdl()
+  
+```
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating 
+  dplyr::group_by (ccode, year, category) %>%
+  dplyr::summarise (exp = sum (total_category_exp_nominal, na.rm = T) / 10^9) %>%
+  
+  # filtering for relevant years
+  filter (year %in% c(2023, 2024)) %>% ungroup () %>%
+  
+  # calculating CAGRs
+  dplyr::group_by (ccode, category) %>%
+  mutate (CAGR = CAGR_fun(exp) * 100) %>% ungroup () %>%
+  
+  # calculating absolute change 
+  pivot_wider (names_from = "year", values_from = 4:5) %>%
+  
+  # computing the delta 
+  mutate (delta_23_24 = exp_2024 - exp_2023) %>%
+  
+  # reordering in descending order by variable of interest
+  arrange (desc (CAGR_2024)) %>%
+  
+  # obtaining the top 22 by growth to 2030
+  slice_head (n = 22) %>%
+  
+  # creating plot
+  ggplot (aes (area = CAGR_2024, 
+               fill = ccode, 
+               label = paste (category, round (CAGR_2024, 1), "%", sep = "\n"))) + 
+  
+  # creating treemap
+  treemapify::geom_treemap (layout = "squarified") +
+  
+  # adding tile text
+  geom_treemap_text (place = "centre",size = 10) +
+  
+  # creating empty title
+  labs (title = "Treemap: top 22 country-categories by CAGRs", 
+        subtitle = "Nominal USD") +
+  
+  # adding WDL theme, colour and font
+  theme_wdl() +
+  worlddataverse::font_wdl()
+  
+```
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating 
+  dplyr::group_by (ccode, year, category) %>%
+  dplyr::summarise (exp = sum (total_category_exp_real, na.rm = T) / 10^9) %>%
+  
+  # filtering for relevant years
+  filter (year %in% c(2023, 2024)) %>% ungroup () %>%
+  
+  # calculating CAGRs
+  dplyr::group_by (ccode, category) %>%
+  mutate (CAGR = CAGR_fun(exp) * 100) %>% ungroup () %>%
+  
+  # calculating absolute change 
+  pivot_wider (names_from = "year", values_from = 4:5) %>%
+  
+  # computing the delta 
+  mutate (delta_23_24 = exp_2024 - exp_2023) %>%
+  
+  # reordering in descending order by variable of interest
+  arrange (desc (delta_23_24)) %>%
+  
+  # obtaining the top 22 by growth to 2030
+  slice_head (n = 22) %>%
+  
+  # creating plot
+  ggplot (aes (area = delta_23_24, 
+               fill = ccode, 
+               label = paste (category, round (delta_23_24, 0), "B", sep = "\n"))) + 
+  
+  # creating treemap
+  treemapify::geom_treemap (layout = "squarified") +
+  
+  # adding tile text
+  geom_treemap_text (place = "centre",size = 10) +
+  
+  # creating empty title
+  labs (title = "Treemap: top 22 country-categories by absolute growth", 
+        subtitle = "Real 2023 USD") +
+  
+  # adding WDL theme, colour and font
+  theme_wdl() +
+  scale_fill_wdl2() +
+  worlddataverse::font_wdl()
+  
+```
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating 
+  dplyr::group_by (ccode, year, category) %>%
+  dplyr::summarise (exp = sum (total_category_exp_real, na.rm = T) / 10^9) %>%
+  
+  # filtering for relevant years
+  filter (year %in% c(2023, 2024)) %>% ungroup () %>%
+  
+  # calculating CAGRs
+  dplyr::group_by (ccode, category) %>%
+  mutate (CAGR = CAGR_fun(exp) * 100) %>% ungroup () %>%
+  
+  # calculating absolute change 
+  pivot_wider (names_from = "year", values_from = 4:5) %>%
+  
+  # computing the delta 
+  mutate (delta_23_24 = exp_2024 - exp_2023) %>%
+  
+  # reordering in descending order by variable of interest
+  arrange (desc (CAGR_2024)) %>%
+  
+  # obtaining the top 22 by growth to 2030
+  slice_head (n = 22) %>%
+  
+  # creating plot
+  ggplot (aes (area = CAGR_2024, 
+               fill = ccode, 
+               label = paste (category, round (CAGR_2024, 1), "%", sep = "\n"))) + 
+  
+  # creating treemap
+  treemapify::geom_treemap (layout = "squarified") +
+  
+  # adding tile text
+  geom_treemap_text (place = "centre",size = 10) +
+  
+  # creating empty title
+  labs (title = "Treemap: top 22 country-categories by CAGRs", 
+        subtitle = "Real 2023 USD") +
+  
+  # adding WDL theme, colour and font
+  theme_wdl() +
+  worlddataverse::font_wdl()
+  
+```
+
+And this is the same thing for 2023 --> 2030 growth
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating 
+  dplyr::group_by (ccode, year, category) %>%
+  dplyr::summarise (exp = sum (total_category_exp_ppp, na.rm = T) / 10^9) %>%
+  
+  # filtering for relevant years
+  filter (year %in% c(2023:2030)) %>% ungroup () %>%
+  
+  # calculating CAGRs
+  dplyr::group_by (ccode, category) %>%
+  mutate (CAGR = CAGR_fun(exp) * 100) %>% ungroup () %>%
+  
+  # filter for relevant years
+  filter (year %in% c(2023,2030)) %>% ungroup () %>%
+  
+  # calculating absolute change 
+  pivot_wider (names_from = "year", values_from = 4:5) %>%
+  
+  # computing the delta 
+  mutate (delta_23_24 = exp_2030 - exp_2023) %>%
+  
+  # reordering in descending order by variable of interest
+  arrange (desc (delta_23_24)) %>%
+  
+  # obtaining the top 22 by growth to 2030
+  slice_head (n = 22) %>%
+  
+  # creating plot
+  ggplot (aes (area = delta_23_24, 
+               fill = ccode, 
+               label = paste (category, round (delta_23_24, 0), "B", sep = "\n"))) + 
+  
+  # creating treemap
+  treemapify::geom_treemap (layout = "squarified") +
+  
+  # adding tile text
+  geom_treemap_text (place = "centre",size = 10) +
+  
+  # creating empty title
+  labs (title = "Treemap: top 22 country-categories by absolute growth", 
+        subtitle = "2017 PPP") +
+  
+  # adding WDL theme, colour and font
+  theme_wdl() +
+  scale_fill_wdl2() +
+  worlddataverse::font_wdl()
+  
+```
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating 
+  dplyr::group_by (ccode, year, category) %>%
+  dplyr::summarise (exp = sum (total_category_exp_ppp, na.rm = T) / 10^9) %>%
+  
+  # filtering for relevant years
+  filter (year %in% c(2023:2030)) %>% ungroup () %>%
+  
+  # calculating CAGRs
+  dplyr::group_by (ccode, category) %>%
+  mutate (CAGR = CAGR_fun(exp) * 100) %>% ungroup () %>%
+  
+  # filter for relevant years
+  filter (year %in% c(2023,2030)) %>% ungroup () %>%
+  
+  # calculating absolute change 
+  pivot_wider (names_from = "year", values_from = 4:5) %>%
+  
+  # computing the delta 
+  mutate (delta_23_24 = exp_2030 - exp_2023) %>%
+  
+  # reordering in descending order by variable of interest
+  arrange (desc (CAGR_2030)) %>%
+  
+  # obtaining the top 22 by growth to 2030
+  slice_head (n = 22) %>%
+  
+  # creating plot
+  ggplot (aes (area = CAGR_2030, 
+               fill = ccode, 
+               label = paste (category, round (CAGR_2030, 1), "%", sep = "\n"))) + 
+  
+  # creating treemap
+  treemapify::geom_treemap (layout = "squarified") +
+  
+  # adding tile text
+  geom_treemap_text (place = "centre",size = 10) +
+  
+  # creating empty title
+  labs (title = "Treemap: top 22 country-categories by CAGRs", 
+        subtitle = "2017 PPP") +
+  
+  # adding WDL theme, colour and font
+  theme_wdl() +
+  worlddataverse::font_wdl()
+  
+```
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating 
+  dplyr::group_by (ccode, year, category) %>%
+  dplyr::summarise (exp = sum (total_category_exp_nominal, na.rm = T) / 10^9) %>%
+  
+  # filtering for relevant years
+  filter (year %in% c(2023, 2030)) %>% ungroup () %>%
+  
+  # calculating CAGRs
+  dplyr::group_by (ccode, category) %>%
+  mutate (CAGR = CAGR_fun(exp) * 100) %>% ungroup () %>%
+  
+  # calculating absolute change 
+  pivot_wider (names_from = "year", values_from = 4:5) %>%
+  
+  # computing the delta 
+  mutate (delta_23_24 = exp_2030 - exp_2023) %>%
+  
+  # reordering in descending order by variable of interest
+  arrange (desc (delta_23_24)) %>%
+  
+  # obtaining the top 22 by growth to 2030
+  slice_head (n = 22) %>%
+  
+  # creating plot
+  ggplot (aes (area = delta_23_24, 
+               fill = ccode, 
+               label = paste (category, round (delta_23_24, 0), "B", sep = "\n"))) + 
+  
+  # creating treemap
+  treemapify::geom_treemap (layout = "squarified") +
+  
+  # adding tile text
+  geom_treemap_text (place = "centre",size = 10) +
+  
+  # creating empty title
+  labs (title = "Treemap: top 22 country-categories by absolute growth", 
+        subtitle = "Nominal USD") +
+  
+  # adding WDL theme, colour and font
+  theme_wdl() +
+  scale_fill_wdl2() +
+  worlddataverse::font_wdl()
+  
+```
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating 
+  dplyr::group_by (ccode, year, category) %>%
+  dplyr::summarise (exp = sum (total_category_exp_nominal, na.rm = T) / 10^9) %>%
+  
+  # filtering for relevant years
+  filter (year %in% c(2023:2030)) %>% ungroup () %>%
+  
+  # calculating CAGRs
+  dplyr::group_by (ccode, category) %>%
+  mutate (CAGR = CAGR_fun(exp) * 100) %>% ungroup () %>%
+  
+  # filter for relevant years
+  filter (year %in% c(2023,2030)) %>% ungroup () %>%
+  
+  # calculating absolute change 
+  pivot_wider (names_from = "year", values_from = 4:5) %>%
+  
+  # computing the delta 
+  mutate (delta_23_24 = exp_2030 - exp_2023) %>%
+  
+  # reordering in descending order by variable of interest
+  arrange (desc (CAGR_2030)) %>%
+  
+  # obtaining the top 22 by growth to 2030
+  slice_head (n = 22) %>%
+  
+  # creating plot
+  ggplot (aes (area = CAGR_2030, 
+               fill = ccode, 
+               label = paste (category, round (CAGR_2030, 1), "%", sep = "\n"))) + 
+  
+  # creating treemap
+  treemapify::geom_treemap (layout = "squarified") +
+  
+  # adding tile text
+  geom_treemap_text (place = "centre",size = 10) +
+  
+  # creating empty title
+  labs (title = "Treemap: top 22 country-categories by CAGRs", 
+        subtitle = "Nominal USD") +
+  
+  # adding WDL theme, colour and font
+  theme_wdl() +
+  worlddataverse::font_wdl()
+  
+```
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating 
+  dplyr::group_by (ccode, year, category) %>%
+  dplyr::summarise (exp = sum (total_category_exp_real, na.rm = T) / 10^9) %>%
+  
+  # filtering for relevant years
+  filter (year %in% c(2023, 2030)) %>% ungroup () %>%
+  
+  # calculating CAGRs
+  dplyr::group_by (ccode, category) %>%
+  mutate (CAGR = CAGR_fun(exp) * 100) %>% ungroup () %>%
+  
+  # calculating absolute change 
+  pivot_wider (names_from = "year", values_from = 4:5) %>%
+  
+  # computing the delta 
+  mutate (delta_23_24 = exp_2030 - exp_2023) %>%
+  
+  # reordering in descending order by variable of interest
+  arrange (desc (delta_23_24)) %>%
+  
+  # obtaining the top 22 by growth to 2030
+  slice_head (n = 22) %>%
+  
+  # creating plot
+  ggplot (aes (area = delta_23_24, 
+               fill = ccode, 
+               label = paste (category, round (delta_23_24, 0), "B", sep = "\n"))) + 
+  
+  # creating treemap
+  treemapify::geom_treemap (layout = "squarified") +
+  
+  # adding tile text
+  geom_treemap_text (place = "centre",size = 10) +
+  
+  # creating empty title
+  labs (title = "Treemap: top 22 country-categories by absolute growth", 
+        subtitle = "Real 2023 USD") +
+  
+  # adding WDL theme, colour and font
+  theme_wdl() +
+  scale_fill_wdl2() +
+  worlddataverse::font_wdl()
+  
+```
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating 
+  dplyr::group_by (ccode, year, category) %>%
+  dplyr::summarise (exp = sum (total_category_exp_real, na.rm = T) / 10^9) %>%
+  
+  # filtering for relevant years
+  filter (year %in% c(2023:2030)) %>% ungroup () %>%
+  
+  # calculating CAGRs
+  dplyr::group_by (ccode, category) %>%
+  mutate (CAGR = CAGR_fun(exp) * 100) %>% ungroup () %>%
+  
+  # filter for relevant years
+  filter (year %in% c(2023,2030)) %>% ungroup () %>%
+  
+  # calculating absolute change 
+  pivot_wider (names_from = "year", values_from = 4:5) %>%
+  
+  # computing the delta 
+  mutate (delta_23_24 = exp_2030 - exp_2023) %>%
+  
+  # reordering in descending order by variable of interest
+  arrange (desc (CAGR_2030)) %>%
+  
+  # obtaining the top 22 by growth to 2030
+  slice_head (n = 22) %>%
+  
+  # creating plot
+  ggplot (aes (area = CAGR_2030, 
+               fill = ccode, 
+               label = paste (category, round (CAGR_2030, 1), "%", sep = "\n"))) + 
+  
+  # creating treemap
+  treemapify::geom_treemap (layout = "squarified") +
+  
+  # adding tile text
+  geom_treemap_text (place = "centre",size = 10) +
+  
+  # creating empty title
+  labs (title = "Treemap: top 22 country-categories by CAGRs", 
+        subtitle = "Real 2023 USD") +
+  
+  # adding WDL theme, colour and font
+  theme_wdl() +
+  worlddataverse::font_wdl()
+  
+```
+
+## How do categories compare to each other in terms of growth to 2024 and 2030?
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating 
+  dplyr::group_by (year, category) %>%
+  dplyr::summarise (exp = sum (total_category_exp_ppp, na.rm = T) / 10^12) %>%
+  
+  # filtering for relevant years
+  filter (year %in% c(2023:2030)) %>% ungroup () %>%
+  
+  # calculating CAGRs
+  dplyr::group_by (category) %>%
+  mutate (CAGR = CAGR_fun(exp) * 100) %>% ungroup () %>%
+  
+   # filter for relevant years
+  filter (year %in% c(2023,2024,2030)) %>% ungroup () %>%
+  
+  # computing deltas
+  dplyr::group_by (category) %>%
+  mutate (lagged = Hmisc::Lag (exp),
+          delta = exp - lagged) %>%
+  
+  # keeping relevant years
+  filter (!year == 2023) %>%
+  
+  # removing lagged var
+  dplyr::select (-lagged) %>%
+  
+  # widening 
+  pivot_wider (names_from = "year", values_from = 4:5) %>%
+  
+  # elongating 
+  pivot_longer (3:6, names_to = "type", values_to = "value") %>%
+  
+  # remvoving NAs
+  drop_na (value) %>%
+  
+  # making plots
+  ggplot (aes (x = category, y = value)) +
+  geom_bar (stat = "identity") +
+  geom_text (aes (label = round (value, 2), colour = category), size = 3, vjust = 1) + 
+  scale_color_manual (values = c("white","white","white","white","white","white",
+                                 "white","white","white","white","white","white")) +
+  facet_wrap (~type, scales = "free") + 
+  theme (axis.text.x = element_text (angle = 45, vjust = 0.5),
+         legend.position = "none") + 
+  labs (subtitle = "2017 PPP")
+```
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating 
+  dplyr::group_by (year, category) %>%
+  dplyr::summarise (exp = sum (total_category_exp_nominal, na.rm = T) / 10^12) %>%
+  
+  # filtering for relevant years
+  filter (year %in% c(2023:2030)) %>% ungroup () %>%
+  
+  # calculating CAGRs
+  dplyr::group_by (category) %>%
+  mutate (CAGR = CAGR_fun(exp) * 100) %>% ungroup () %>%
+  
+   # filter for relevant years
+  filter (year %in% c(2023,2024,2030)) %>% ungroup () %>%
+  
+  # computing deltas
+  dplyr::group_by (category) %>%
+  mutate (lagged = Hmisc::Lag (exp),
+          delta = exp - lagged) %>%
+  
+  # keeping relevant years
+  filter (!year == 2023) %>%
+  
+  # removing lagged var
+  dplyr::select (-lagged) %>%
+  
+  # widening 
+  pivot_wider (names_from = "year", values_from = 4:5) %>%
+  
+  # elongating 
+  pivot_longer (3:6, names_to = "type", values_to = "value") %>%
+  
+  # remvoving NAs
+  drop_na (value) %>%
+  
+  # making plots
+  ggplot (aes (x = category, y = value)) +
+  geom_bar (stat = "identity") +
+  geom_text (aes (label = round (value, 2), colour = category), size = 3, vjust = 1) + 
+  scale_color_manual (values = c("white","white","white","white","white","white",
+                                 "white","white","white","white","white","white")) +
+  facet_wrap (~type, scales = "free") + 
+  theme (axis.text.x = element_text (angle = 45, vjust = 0.5),
+         legend.position = "none") + 
+  labs (subtitle = "Nominal USD")
+```
+
+```{r, echo=FALSE}
+data %>%
+  
+  # aggregating 
+  dplyr::group_by (year, category) %>%
+  dplyr::summarise (exp = sum (total_category_exp_real, na.rm = T) / 10^12) %>%
+  
+  # filtering for relevant years
+  filter (year %in% c(2023:2030)) %>% ungroup () %>%
+  
+  # calculating CAGRs
+  dplyr::group_by (category) %>%
+  mutate (CAGR = CAGR_fun(exp) * 100) %>% ungroup () %>%
+  
+   # filter for relevant years
+  filter (year %in% c(2023,2024,2030)) %>% ungroup () %>%
+  
+  # computing deltas
+  dplyr::group_by (category) %>%
+  mutate (lagged = Hmisc::Lag (exp),
+          delta = exp - lagged) %>%
+  
+  # keeping relevant years
+  filter (!year == 2023) %>%
+  
+  # removing lagged var
+  dplyr::select (-lagged) %>%
+  
+  # widening 
+  pivot_wider (names_from = "year", values_from = 4:5) %>%
+  
+  # elongating 
+  pivot_longer (3:6, names_to = "type", values_to = "value") %>%
+  
+  # remvoving NAs
+  drop_na (value) %>%
+  
+  # making plots
+  ggplot (aes (x = category, y = value)) +
+  geom_bar (stat = "identity") +
+  geom_text (aes (label = round (value, 2), colour = category), size = 3, vjust = 1) + 
+  scale_color_manual (values = c("white","white","white","white","white","white",
+                                 "white","white","white","white","white","white")) +
+  facet_wrap (~type, scales = "free") + 
+  theme (axis.text.x = element_text (angle = 45, vjust = 0.5),
+         legend.position = "none") + 
+  labs (subtitle = "Real 2023 USD")
+```
+
+# Spending per capita
+
+# Cross categories relationships/correlations
+
+This is a correlation matrix of all possible pair-wise correlations between categories (in terms of their spending). 
+
+```{r, echo=FALSE}
+## formatting data 
+dat1 <- data %>%
+  
+  # aggregating
+  dplyr::group_by (year, category) %>%
+  dplyr::summarise (exp = sum (total_category_exp_ppp, na.rm = T) / 10^12) %>%
+  
+  # widening
+  pivot_wider (names_from = "category", values_from = "exp")
+
+## plot
+corrplot::corrplot.mixed (
+  cor (dat1 [,2:13],
+       use = "complete.obs"),
+  upper = "ellipse",
+  tl.cex = 0.7,
+  title = "Pairwise correlations of categories spending in PPP",
+  mar = c(0,0,1,0),
+  text.diag = "values",
+  diag.direction = "diagonal.45",
+  diag.cex = 0.5
+)
+  
+```
+
+```{r, echo=FALSE}
+## formatting data 
+dat1 <- data %>%
+  
+  # aggregating
+  dplyr::group_by (year, category) %>%
+  dplyr::summarise (exp = sum (total_category_exp_nominal, na.rm = T) / 10^12) %>%
+  
+  # widening
+  pivot_wider (names_from = "category", values_from = "exp")
+
+## plot
+corrplot::corrplot.mixed (
+  cor (dat1 [,2:13],
+       use = "complete.obs"),
+  upper = "ellipse",
+  tl.cex = 0.7,
+  title = "Pairwise correlations of categories spending in Nominal",
+  mar = c(0,0,1,0),
+  text.diag = "values",
+  diag.direction = "diagonal.45",
+  diag.cex = 0.5
+)
+  
+```
+
+```{r, echo=FALSE}
+## formatting data 
+dat1 <- data %>%
+  
+  # aggregating
+  dplyr::group_by (year, category) %>%
+  dplyr::summarise (exp = sum (total_category_exp_real, na.rm = T) / 10^12) %>%
+  
+  # widening
+  pivot_wider (names_from = "category", values_from = "exp")
+
+## plot
+corrplot::corrplot.mixed (
+  cor (dat1 [,2:13],
+       use = "complete.obs"),
+  upper = "ellipse",
+  tl.cex = 0.7,
+  title = "Pairwise correlations of categories spending in real 2023 USD",
+  mar = c(0,0,1,0),
+  text.diag = "values",
+  diag.direction = "diagonal.45",
+  diag.cex = 0.5
+)
+  
+```
+
+
+
+
+
+
+
+
+
+
+
